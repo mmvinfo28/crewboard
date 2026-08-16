@@ -1,8 +1,8 @@
 {
-  "name": "swarm",
+  "name": "crewboard-core",
   "version": "0.1.0",
   "private": true,
-  "description": "Multi-agent orchestration plugin — core library (zero runtime deps).",
+  "description": "Crewboard multi-agent orchestration core (zero runtime dependencies).",
   "scripts": {
     "test": "node --test"
   }
