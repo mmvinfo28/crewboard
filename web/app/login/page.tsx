@@ -19,6 +19,11 @@ export default function LoginPage() {
     }
   }, []);
 
+  function destination() {
+    const next = new URLSearchParams(window.location.search).get("next");
+    return next?.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
@@ -33,7 +38,7 @@ export default function LoginPage() {
           password,
           options: {
             data: { display_name: displayName.trim() || email.split("@")[0] },
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination())}`,
           },
         });
 
@@ -44,7 +49,7 @@ export default function LoginPage() {
             display_name: displayName.trim() || email.split("@")[0],
             updated_at: new Date().toISOString(),
           });
-          window.location.replace("/dashboard");
+          window.location.replace(destination());
           return;
         }
         setMessage("Check your email to confirm your account, then return here to sign in.");
@@ -64,7 +69,7 @@ export default function LoginPage() {
             : email.split("@")[0],
           updated_at: new Date().toISOString(),
         });
-        window.location.replace("/dashboard");
+        window.location.replace(destination());
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Sign in failed. Please try again.");

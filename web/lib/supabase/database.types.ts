@@ -1025,6 +1025,14 @@ export type Database = {
           requeued_runs: number
         }[]
       }
+      redeem_party_invitation: {
+        Args: { p_code_hash: string; p_user_id: string }
+        Returns: {
+          membership_role: string
+          party_id: string
+          party_name: string
+        }[]
+      }
       request_task_approval: {
         Args: {
           p_device_id: string
