@@ -5,7 +5,7 @@ The connector runs Claude Code and Codex on your computer using their existing l
 During the beta, install directly from the Crewboard GitHub branch:
 
 ```bash
-npx --yes github:mmvinfo28/crewboard#agent/crewboard-web-app connect --workspace ./my-project
+npx --yes github:mmvinfo28/crewboard#agent/crewboard-web-app connect --workspace ./my-project --url https://swarm-eight-azure.vercel.app
 ```
 
 The shorter `npx @crewboard/connector connect` command will be available after the package is published to npm.

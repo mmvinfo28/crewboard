@@ -6,7 +6,7 @@ import { Connector } from "./connector.js";
 import { detectAgents, platformName } from "./detect.js";
 
 const VERSION = "0.1.0";
-const DEFAULT_SERVER = process.env.CREWBOARD_URL || "https://crewboard.vercel.app";
+const DEFAULT_SERVER = process.env.CREWBOARD_URL || "https://swarm-eight-azure.vercel.app";
 
 function argument(args, name, fallback = null) {
   const index = args.indexOf(name);
@@ -86,4 +86,3 @@ export async function main(args) {
   help();
   if (!["help", "--help", "-h"].includes(command)) process.exitCode = 1;
 }
-
