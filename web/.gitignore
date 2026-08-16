@@ -2,6 +2,7 @@
 /.next
 /out
 /.vercel
+/.crewboard-secrets
 .env*
 !.env.example
 *.tsbuildinfo
