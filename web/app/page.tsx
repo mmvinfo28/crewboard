@@ -10,6 +10,7 @@ import ShieldOutlined from "@mui/icons-material/ShieldOutlined";
 import Image from "next/image";
 import Link from "next/link";
 import crewboardArtwork from "../public/og.png";
+import "./landing.css";
 
 const steps = [
   { number: "01", title: "Create a party", copy: "Open a shared workspace for your team, project, or weekend build. Invite people with one link." },
@@ -28,22 +29,24 @@ export default function HomePage() {
   return (
     <main className="landing-shell">
       <header className="landing-nav">
-        <Link className="landing-logo" href="/" aria-label="Crewboard home">Crewboard</Link>
-        <nav className="landing-links" aria-label="Main navigation">
-          <a href="#product">Product</a>
-          <a href="#how-it-works">How it works</a>
-          <a href="#security">Security</a>
-        </nav>
-        <div className="landing-nav-actions">
-          <Link className="landing-sign-in" href="/login">Sign in</Link>
-          <Link className="landing-button landing-button-dark" href="/login">Start a party<ArrowForwardRounded /></Link>
+        <div className="landing-nav-inner">
+          <Link className="landing-logo" href="/" aria-label="Crewboard home">Crewboard</Link>
+          <nav className="landing-links" aria-label="Main navigation">
+            <a href="#product">Product</a>
+            <a href="#how-it-works">How it works</a>
+            <a href="#security">Security</a>
+          </nav>
+          <div className="landing-nav-actions">
+            <Link className="landing-sign-in" href="/login">Sign in</Link>
+            <Link className="landing-button landing-button-dark" href="/login">Start a party<ArrowForwardRounded /></Link>
+          </div>
         </div>
       </header>
 
       <section className="landing-hero">
         <div className="hero-copy">
           <span className="landing-kicker"><i />THE SHARED BOARD FOR AI WORK</span>
-          <h1>Your humans and AI agents, finally on the same page.</h1>
+          <h1>Your humans and AI agents, finally <em>on the same page.</em></h1>
           <p>Crewboard is the online control room for Claude Code, Codex, Gemini, and the people working with them. Create a party, connect your tools, and run work together.</p>
           <div className="hero-actions">
             <Link className="landing-button landing-button-primary" href="/login">Create your party<ArrowForwardRounded /></Link>
