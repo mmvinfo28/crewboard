@@ -9,6 +9,7 @@ export type Party = Tables["parties"]["Row"] & { role: string };
 export type AgentRow = Tables["agents"]["Row"];
 export type TaskRow = Tables["tasks"]["Row"];
 export type DeviceRow = Tables["devices"]["Row"];
+export type DeviceSessionRow = Tables["device_sessions"]["Row"];
 export type ProjectRow = Tables["projects"]["Row"];
 export type DeviceFolderRow = Tables["device_folders"]["Row"];
 export type RepositorySetupRow = Tables["repository_setup_requests"]["Row"];
@@ -31,6 +32,7 @@ export function useCrewboardData() {
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [devices, setDevices] = useState<DeviceRow[]>([]);
+  const [deviceSessions, setDeviceSessions] = useState<DeviceSessionRow[]>([]);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [deviceFolders, setDeviceFolders] = useState<DeviceFolderRow[]>([]);
   const [repositorySetups, setRepositorySetups] = useState<RepositorySetupRow[]>([]);
@@ -91,16 +93,17 @@ export function useCrewboardData() {
 
   const loadPartyData = useCallback(async (partyId: string) => {
     if (!partyId) {
-      setAgents([]); setTasks([]); setDevices([]); setProjects([]); setDeviceFolders([]); setRepositorySetups([]); setMembers([]); setActivity([]); setUsageEvents([]);
+      setAgents([]); setTasks([]); setDevices([]); setDeviceSessions([]); setProjects([]); setDeviceFolders([]); setRepositorySetups([]); setMembers([]); setActivity([]); setUsageEvents([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError("");
-    const [agentResult, taskResult, deviceResult, projectResult, folderResult, setupResult, memberResult, activityResult, usageResult] = await Promise.all([
+    const [agentResult, taskResult, deviceResult, sessionResult, projectResult, folderResult, setupResult, memberResult, activityResult, usageResult] = await Promise.all([
       supabase.from("agents").select("*").eq("party_id", partyId).order("created_at"),
       supabase.from("tasks").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(200),
       supabase.from("devices").select("*").eq("party_id", partyId).order("created_at"),
+      supabase.from("device_sessions").select("*").eq("party_id", partyId).order("created_at", { ascending: false }),
       supabase.from("projects").select("*").eq("party_id", partyId).order("created_at", { ascending: false }),
       supabase.from("device_folders").select("*").eq("party_id", partyId).order("created_at", { ascending: false }),
       supabase.from("repository_setup_requests").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(20),
@@ -108,7 +111,7 @@ export function useCrewboardData() {
       supabase.from("activity_events").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(100),
       supabase.from("usage_events").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(100),
     ]);
-    const firstError = [agentResult.error, taskResult.error, deviceResult.error, projectResult.error, folderResult.error, setupResult.error, memberResult.error, activityResult.error, usageResult.error].find(Boolean);
+    const firstError = [agentResult.error, taskResult.error, deviceResult.error, sessionResult.error, projectResult.error, folderResult.error, setupResult.error, memberResult.error, activityResult.error, usageResult.error].find(Boolean);
     if (firstError) {
       setError(firstError.message);
       setLoading(false);
@@ -123,6 +126,7 @@ export function useCrewboardData() {
     setAgents(agentResult.data ?? []);
     setTasks(taskResult.data ?? []);
     setDevices(deviceResult.data ?? []);
+    setDeviceSessions(sessionResult.data ?? []);
     setProjects(projectResult.data ?? []);
     setDeviceFolders(folderResult.data ?? []);
     setRepositorySetups(setupResult.data ?? []);
@@ -135,6 +139,19 @@ export function useCrewboardData() {
     setUsageEvents(usageResult.data ?? []);
     setLoading(false);
   }, [supabase]);
+
+  const refreshDevices = useCallback(async () => {
+    if (!activePartyId) return [] as DeviceRow[];
+    const { data, error: deviceError } = await supabase
+      .from("devices")
+      .select("*")
+      .eq("party_id", activePartyId)
+      .order("created_at");
+    if (deviceError) throw deviceError;
+    const rows = data ?? [];
+    setDevices(rows);
+    return rows;
+  }, [activePartyId, supabase]);
 
   useEffect(() => {
     loadParties().catch((reason: unknown) => {
@@ -179,6 +196,14 @@ export function useCrewboardData() {
       .subscribe((status) => setRealtimeConnected(status === "SUBSCRIBED"));
     return () => { setRealtimeConnected(false); void supabase.removeChannel(channel); };
   }, [activePartyId, loadPartyData, supabase]);
+
+  useEffect(() => {
+    if (!activePartyId) return;
+    const refresh = () => { if (document.visibilityState === "visible") void refreshDevices().catch(() => {}); };
+    const interval = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(interval); window.removeEventListener("focus", refresh); };
+  }, [activePartyId, refreshDevices]);
 
   function selectParty(partyId: string) {
     setActivePartyId(partyId);
@@ -232,9 +257,20 @@ export function useCrewboardData() {
     await loadPartyData(activePartyId);
   }
 
+  async function revokeDeviceSession(sessionId: string) {
+    const response = await fetch("/api/connector/session/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error?.message ?? "Could not disconnect this device");
+    await loadPartyData(activePartyId);
+  }
+
   return {
     userId, email, displayName, setDisplayName, parties, activeParty, activePartyId, selectParty,
-    agents, tasks, devices, projects, deviceFolders, repositorySetups, members, activity, usageEvents, loading, error, realtimeConnected,
-    createParty, addTask, requestRepositorySetup, toggleAgent, refresh: () => loadPartyData(activePartyId),
+    agents, tasks, devices, deviceSessions, projects, deviceFolders, repositorySetups, members, activity, usageEvents, loading, error, realtimeConnected,
+    createParty, addTask, requestRepositorySetup, toggleAgent, revokeDeviceSession, refreshDevices, refresh: () => loadPartyData(activePartyId),
   };
 }

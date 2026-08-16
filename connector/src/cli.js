@@ -5,7 +5,7 @@ import { clearConfig, configLocation, loadConfig, saveConfig } from "./config.js
 import { Connector } from "./connector.js";
 import { detectAgents, platformName } from "./detect.js";
 
-const VERSION = "0.2.0";
+const VERSION = "0.2.1";
 const DEFAULT_SERVER = process.env.CREWBOARD_URL || "https://swarm-eight-azure.vercel.app";
 
 function argument(args, name, fallback = null) {
