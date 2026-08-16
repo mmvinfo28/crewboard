@@ -21,7 +21,7 @@ function spawnAgent(command, args, options, input = "") {
     const child = spawn(command, args, {
       cwd: options.workspace,
       env: { ...process.env, CREWBOARD_TASK_ID: options.taskId },
-      shell: process.platform === "win32" && !command.toLowerCase().endsWith(".exe"),
+      shell: false,
       windowsHide: true,
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -60,4 +60,3 @@ export async function runAgent(agent, task, options) {
   }
   throw new Error(`Unsupported agent provider: ${agent.provider}`);
 }
-

@@ -3,17 +3,27 @@ import { existsSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+function resolveCommand(command) {
+  if (process.platform !== "win32" || path.extname(command)) return command;
+  const result = spawnSync("where.exe", [command], { encoding: "utf8", windowsHide: true });
+  if (result.status !== 0) return command;
+  return `${result.stdout}`
+    .split(/\r?\n/)
+    .map((candidate) => candidate.trim())
+    .find((candidate) => /\.(exe|com)$/i.test(candidate)) || command;
+}
+
 function commandWorks(command) {
   try {
-    const needsShell = process.platform === "win32" && !/\.(exe|com)$/i.test(command);
-    const result = spawnSync(command, ["--version"], {
+    const resolvedCommand = resolveCommand(command);
+    const result = spawnSync(resolvedCommand, ["--version"], {
       encoding: "utf8",
-      shell: needsShell,
       timeout: 15000,
       windowsHide: true,
     });
-    return result.status === 0 ? `${result.stdout || result.stderr}`.trim() : "";
-  } catch { return ""; }
+    const version = result.status === 0 ? `${result.stdout || result.stderr}`.trim() : "";
+    return version ? { command: resolvedCommand, version } : null;
+  } catch { return null; }
 }
 
 function codexCandidates() {
@@ -47,13 +57,13 @@ export function detectAgents() {
   const agents = [];
   for (const candidate of claudeCandidates()) {
     if (candidate !== "claude" && !existsSync(candidate)) continue;
-    const claudeVersion = commandWorks(candidate);
-    if (!claudeVersion) continue;
+    const detected = commandWorks(candidate);
+    if (!detected) continue;
     agents.push({
       provider: "claude",
       name: "Claude Code",
-      model: claudeVersion.split(/\r?\n/)[0].slice(0, 100),
-      command: candidate,
+      model: detected.version.split(/\r?\n/)[0].slice(0, 100),
+      command: detected.command,
       capabilities: ["text", "code", "filesystem"],
     });
     break;
@@ -61,13 +71,13 @@ export function detectAgents() {
 
   for (const candidate of codexCandidates()) {
     if (candidate !== "codex" && !existsSync(candidate)) continue;
-    const version = commandWorks(candidate);
-    if (!version) continue;
+    const detected = commandWorks(candidate);
+    if (!detected) continue;
     agents.push({
       provider: "codex",
       name: "Codex",
       model: configuredCodexModel(),
-      command: candidate,
+      command: detected.command,
       capabilities: ["text", "code", "filesystem"],
     });
     break;
