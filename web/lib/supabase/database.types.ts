@@ -422,7 +422,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_party: {
+        Args: { party_name: string; party_slug: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
