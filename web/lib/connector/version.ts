@@ -33,7 +33,7 @@ function compareVersions(left: ParsedVersion, right: ParsedVersion) {
 
 export function connectorVersionPolicy() {
   return {
-    minimumVersion: process.env.CREWBOARD_MIN_CONNECTOR_VERSION || "0.1.0",
+    minimumVersion: process.env.CREWBOARD_MIN_CONNECTOR_VERSION || "0.2.0",
     blockedVersions: (process.env.CREWBOARD_BLOCKED_CONNECTOR_VERSIONS || "")
       .split(",")
       .map((version) => version.trim())

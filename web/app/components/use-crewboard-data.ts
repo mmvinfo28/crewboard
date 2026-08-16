@@ -9,6 +9,9 @@ export type Party = Tables["parties"]["Row"] & { role: string };
 export type AgentRow = Tables["agents"]["Row"];
 export type TaskRow = Tables["tasks"]["Row"];
 export type DeviceRow = Tables["devices"]["Row"];
+export type ProjectRow = Tables["projects"]["Row"];
+export type DeviceFolderRow = Tables["device_folders"]["Row"];
+export type RepositorySetupRow = Tables["repository_setup_requests"]["Row"];
 export type UsageRow = Tables["usage_events"]["Row"];
 export type ActivityRow = Tables["activity_events"]["Row"];
 export type Member = Tables["party_members"]["Row"] & {
@@ -28,6 +31,9 @@ export function useCrewboardData() {
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [devices, setDevices] = useState<DeviceRow[]>([]);
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [deviceFolders, setDeviceFolders] = useState<DeviceFolderRow[]>([]);
+  const [repositorySetups, setRepositorySetups] = useState<RepositorySetupRow[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [usageEvents, setUsageEvents] = useState<UsageRow[]>([]);
@@ -85,21 +91,24 @@ export function useCrewboardData() {
 
   const loadPartyData = useCallback(async (partyId: string) => {
     if (!partyId) {
-      setAgents([]); setTasks([]); setDevices([]); setMembers([]); setActivity([]); setUsageEvents([]);
+      setAgents([]); setTasks([]); setDevices([]); setProjects([]); setDeviceFolders([]); setRepositorySetups([]); setMembers([]); setActivity([]); setUsageEvents([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError("");
-    const [agentResult, taskResult, deviceResult, memberResult, activityResult, usageResult] = await Promise.all([
+    const [agentResult, taskResult, deviceResult, projectResult, folderResult, setupResult, memberResult, activityResult, usageResult] = await Promise.all([
       supabase.from("agents").select("*").eq("party_id", partyId).order("created_at"),
       supabase.from("tasks").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(200),
       supabase.from("devices").select("*").eq("party_id", partyId).order("created_at"),
+      supabase.from("projects").select("*").eq("party_id", partyId).order("created_at", { ascending: false }),
+      supabase.from("device_folders").select("*").eq("party_id", partyId).order("created_at", { ascending: false }),
+      supabase.from("repository_setup_requests").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(20),
       supabase.from("party_members").select("*").eq("party_id", partyId).order("joined_at"),
       supabase.from("activity_events").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(100),
       supabase.from("usage_events").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(100),
     ]);
-    const firstError = [agentResult.error, taskResult.error, deviceResult.error, memberResult.error, activityResult.error, usageResult.error].find(Boolean);
+    const firstError = [agentResult.error, taskResult.error, deviceResult.error, projectResult.error, folderResult.error, setupResult.error, memberResult.error, activityResult.error, usageResult.error].find(Boolean);
     if (firstError) {
       setError(firstError.message);
       setLoading(false);
@@ -114,6 +123,9 @@ export function useCrewboardData() {
     setAgents(agentResult.data ?? []);
     setTasks(taskResult.data ?? []);
     setDevices(deviceResult.data ?? []);
+    setProjects(projectResult.data ?? []);
+    setDeviceFolders(folderResult.data ?? []);
+    setRepositorySetups(setupResult.data ?? []);
     setMembers(memberRows.map((member) => ({
       ...member,
       displayName: profileById.get(member.user_id)?.display_name ?? "Crewboard member",
@@ -146,6 +158,18 @@ export function useCrewboardData() {
         if (payload.eventType === "DELETE") setTasks((rows) => rows.filter((row) => row.id !== (payload.old as { id?: string }).id));
         else setTasks((rows) => mergeRow(rows, payload.new as TaskRow));
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "projects", filter: `party_id=eq.${activePartyId}` }, (payload) => {
+        if (payload.eventType === "DELETE") setProjects((rows) => rows.filter((row) => row.id !== (payload.old as { id?: string }).id));
+        else setProjects((rows) => mergeRow(rows, payload.new as ProjectRow));
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "device_folders", filter: `party_id=eq.${activePartyId}` }, (payload) => {
+        if (payload.eventType === "DELETE") setDeviceFolders((rows) => rows.filter((row) => row.id !== (payload.old as { id?: string }).id));
+        else setDeviceFolders((rows) => mergeRow(rows, payload.new as DeviceFolderRow));
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "repository_setup_requests", filter: `party_id=eq.${activePartyId}` }, (payload) => {
+        if (payload.eventType === "DELETE") setRepositorySetups((rows) => rows.filter((row) => row.id !== (payload.old as { id?: string }).id));
+        else setRepositorySetups((rows) => mergeRow(rows, payload.new as RepositorySetupRow));
+      })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity_events", filter: `party_id=eq.${activePartyId}` }, (payload) => {
         setActivity((rows) => [payload.new as ActivityRow, ...rows].slice(0, 100));
       })
@@ -170,17 +194,34 @@ export function useCrewboardData() {
     return data;
   }
 
-  async function addTask(title: string, assignedAgentId?: string) {
+  async function addTask(title: string, assignedAgentId?: string, projectId?: string) {
     if (!activePartyId || !userId) throw new Error("Create or select a party first");
     const { error: taskError } = await supabase.from("tasks").insert({
       party_id: activePartyId,
       created_by: userId,
       title: title.trim(),
       assigned_agent_id: assignedAgentId || null,
+      project_id: projectId || null,
       status: "queued",
     });
     if (taskError) throw taskError;
     await loadPartyData(activePartyId);
+  }
+
+  async function requestRepositorySetup(name: string, deviceId: string) {
+    if (!activePartyId || !userId) throw new Error("Create or select a party first");
+    const { data, error: setupError } = await supabase.from("repository_setup_requests").insert({
+      party_id: activePartyId,
+      device_id: deviceId,
+      requested_by: userId,
+      name: name.trim(),
+    }).select().single();
+    if (setupError) {
+      if (setupError.code === "23505") throw new Error("That computer already has a folder picker waiting for you");
+      throw setupError;
+    }
+    setRepositorySetups((rows) => [data, ...rows]);
+    return data;
   }
 
   async function toggleAgent(agent: AgentRow) {
@@ -193,7 +234,7 @@ export function useCrewboardData() {
 
   return {
     userId, email, displayName, setDisplayName, parties, activeParty, activePartyId, selectParty,
-    agents, tasks, devices, members, activity, usageEvents, loading, error, realtimeConnected,
-    createParty, addTask, toggleAgent, refresh: () => loadPartyData(activePartyId),
+    agents, tasks, devices, projects, deviceFolders, repositorySetups, members, activity, usageEvents, loading, error, realtimeConnected,
+    createParty, addTask, requestRepositorySetup, toggleAgent, refresh: () => loadPartyData(activePartyId),
   };
 }

@@ -2,15 +2,19 @@
 
 The connector runs Claude Code and Codex on your computer using their existing local logins. Crewboard receives task status and short result summaries, but never receives provider credentials.
 
-During the beta, install directly from the Crewboard GitHub branch:
+The recommended beta setup is the **Download for Windows** button under Crewboard → Connect device. Open the downloaded launcher, pair the computer once, and keep its small window running. Reopening the same launcher starts an existing pairing.
+
+After that, use **Add repository** in the dashboard. Crewboard asks the connector to open a normal folder picker; the selected path stays only on that computer. Tasks attached to that repository may edit only that selected workspace.
+
+For Mac, Linux, or advanced setup, run:
 
 ```bash
-npx --yes github:mmvinfo28/crewboard#agent/crewboard-web-app connect --workspace ./my-project --url https://swarm-eight-azure.vercel.app
+npx --yes github:mmvinfo28/crewboard#agent/crewboard-web-app connect
 ```
 
 The shorter `npx @crewboard/connector connect` command will be available after the package is published to npm.
 
-The default mode is read-only. Add `--allow-writes` when you want agents to edit files inside the selected workspace.
+Tasks without a selected Crewboard repository remain read-only. Add `--allow-writes` only when intentionally running unscoped advanced tasks.
 
 Useful commands:
 

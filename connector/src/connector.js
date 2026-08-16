@@ -1,7 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
+import path from "node:path";
 import { rpc, rotateToken } from "./api.js";
 import { saveConfig } from "./config.js";
+import { pathFingerprint, pickRepositoryFolder } from "./folder-picker.js";
 import { runAgent } from "./runner.js";
 
 const HEARTBEAT_MS = 25_000;
@@ -14,6 +16,7 @@ export class Connector {
     this.options = options;
     this.running = false;
     this.claiming = false;
+    this.settingUpRepository = false;
     this.token = null;
     this.registeredAgents = [];
   }
@@ -78,12 +81,71 @@ export class Connector {
     } finally { this.claiming = false; }
   }
 
+  async claimRepositorySetup() {
+    if (this.settingUpRepository || !this.running) return;
+    this.settingUpRepository = true;
+    let request = null;
+    try {
+      const rows = await this.call("connector_claim_repository_setup", {
+        p_device_id: this.config.device.id,
+      });
+      request = rows?.[0];
+      if (!request) return;
+
+      console.log(`\nCrewboard wants to add “${request.name}”. Choose its folder on this computer.`);
+      const folderPath = await pickRepositoryFolder();
+      if (!folderPath) throw new Error("Folder selection was cancelled");
+
+      this.config.pendingRepositoryPaths = {
+        ...(this.config.pendingRepositoryPaths || {}),
+        [request.request_id]: folderPath,
+      };
+      await saveConfig(this.config);
+
+      const projectId = await this.call("connector_complete_repository_setup", {
+        p_device_id: this.config.device.id,
+        p_request_id: request.request_id,
+        p_folder_label: path.basename(folderPath),
+        p_path_fingerprint: pathFingerprint(this.config.device.id, folderPath),
+      });
+      this.config.projectPaths = {
+        ...(this.config.projectPaths || {}),
+        [projectId]: folderPath,
+      };
+      delete this.config.pendingRepositoryPaths[request.request_id];
+      await saveConfig(this.config);
+      console.log(`Repository ready: ${request.name} → ${folderPath}`);
+    } catch (error) {
+      if (request) {
+        await this.call("connector_fail_repository_setup", {
+          p_device_id: this.config.device.id,
+          p_request_id: request.request_id,
+          p_error_message: error.message,
+        }).catch(() => {});
+      }
+      if (request) console.error(`Could not add repository: ${error.message}`);
+    } finally {
+      this.settingUpRepository = false;
+    }
+  }
+
+  async sync() {
+    await this.claimRepositorySetup();
+    await this.claimTasks();
+  }
+
   async execute(agent, task) {
     console.log(`\n[${agent.name}] ${task.title}`);
     const startedAt = Date.now();
     const heartbeat = setInterval(() => { void this.heartbeat(task.run_id).catch((error) => console.error(`Heartbeat failed: ${error.message}`)); }, HEARTBEAT_MS);
     try {
-      const result = await runAgent(agent.local, task, this.options);
+      const projectWorkspace = task.project_id ? this.config.projectPaths?.[task.project_id] : null;
+      if (task.project_id && !projectWorkspace) throw new Error("This repository is not linked on this computer");
+      const result = await runAgent(agent.local, task, {
+        ...this.options,
+        workspace: projectWorkspace || this.options.workspace,
+        allowWrites: task.project_id ? true : this.options.allowWrites,
+      });
       const text = (result.text || "").trim().slice(-4000);
       const success = result.code === 0;
       await this.call("complete_task_run", {
@@ -129,9 +191,9 @@ export class Connector {
     this.realtime = supabase.realtime;
     await this.realtime.setAuth(token.accessToken);
     this.channel = supabase.channel(token.supabase.wakeupTopic, { config: { private: true } })
-      .on("broadcast", { event: "sync" }, () => { void this.claimTasks(); })
-      .subscribe((status) => { if (status === "SUBSCRIBED") void this.claimTasks(); });
-    this.poll = setInterval(() => { void this.claimTasks(); }, FALLBACK_POLL_MS);
+      .on("broadcast", { event: "sync" }, () => { void this.sync(); })
+      .subscribe((status) => { if (status === "SUBSCRIBED") void this.sync(); });
+    this.poll = setInterval(() => { void this.sync(); }, FALLBACK_POLL_MS);
     this.deviceHeartbeat = setInterval(() => { void this.heartbeat().catch((error) => console.error(`Device heartbeat failed: ${error.message}`)); }, HEARTBEAT_MS);
 
     await new Promise((resolve) => {
@@ -142,4 +204,3 @@ export class Connector {
     if (this.channel) await supabase.removeChannel(this.channel);
   }
 }
-

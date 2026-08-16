@@ -638,6 +638,86 @@ export type Database = {
           },
         ]
       }
+      repository_setup_requests: {
+        Row: {
+          claimed_at: string | null
+          completed_at: string | null
+          created_at: string
+          description: string
+          device_id: string
+          error_message: string | null
+          expires_at: string
+          id: string
+          name: string
+          party_id: string
+          project_id: string | null
+          requested_by: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string
+          device_id: string
+          error_message?: string | null
+          expires_at?: string
+          id?: string
+          name: string
+          party_id: string
+          project_id?: string | null
+          requested_by: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string
+          device_id?: string
+          error_message?: string | null
+          expires_at?: string
+          id?: string
+          name?: string
+          party_id?: string
+          project_id?: string | null
+          requested_by?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repository_setup_requests_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repository_setup_requests_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repository_setup_requests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repository_setup_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_runs: {
         Row: {
           agent_id: string | null
@@ -946,6 +1026,33 @@ export type Database = {
           p_result_summary?: string
           p_run_id: string
           p_status: string
+        }
+        Returns: boolean
+      }
+      connector_claim_repository_setup: {
+        Args: { p_device_id: string }
+        Returns: {
+          description: string
+          expires_at: string
+          name: string
+          party_id: string
+          request_id: string
+        }[]
+      }
+      connector_complete_repository_setup: {
+        Args: {
+          p_device_id: string
+          p_folder_label: string
+          p_path_fingerprint: string
+          p_request_id: string
+        }
+        Returns: string
+      }
+      connector_fail_repository_setup: {
+        Args: {
+          p_device_id: string
+          p_error_message: string
+          p_request_id: string
         }
         Returns: boolean
       }

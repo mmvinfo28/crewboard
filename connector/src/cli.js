@@ -5,7 +5,7 @@ import { clearConfig, configLocation, loadConfig, saveConfig } from "./config.js
 import { Connector } from "./connector.js";
 import { detectAgents, platformName } from "./detect.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const DEFAULT_SERVER = process.env.CREWBOARD_URL || "https://swarm-eight-azure.vercel.app";
 
 function argument(args, name, fallback = null) {
@@ -47,13 +47,15 @@ async function connect(args) {
   console.log("Waiting for approval…");
   const credentials = await waitForApproval(serverUrl, challenge);
   const config = {
-    version: 1,
+    version: 2,
     connectorVersion: VERSION,
     serverUrl,
     tokenEndpoint: credentials.tokenEndpoint,
     refreshToken: credentials.refreshToken,
     device: credentials.device,
     session: credentials.session,
+    projectPaths: {},
+    pendingRepositoryPaths: {},
     pairedAt: new Date().toISOString(),
   };
   await saveConfig(config);
@@ -64,6 +66,11 @@ async function connect(args) {
 async function run(args) {
   const config = await loadConfig();
   if (!config) throw new Error("This computer is not paired. Run crewboard connect first");
+  config.version = 2;
+  config.connectorVersion = VERSION;
+  config.projectPaths ||= {};
+  config.pendingRepositoryPaths ||= {};
+  await saveConfig(config);
   const agents = detectAgents();
   if (!agents.length) throw new Error("No supported local agents found");
   await new Connector(config, agents, connectorOptions(args)).start();
