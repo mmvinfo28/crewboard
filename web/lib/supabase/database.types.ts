@@ -961,6 +961,32 @@ export type Database = {
           renewed_lease_expires_at: string
         }[]
       }
+      connector_record_usage: {
+        Args: {
+          p_agent_id: string
+          p_cached_input_tokens?: number
+          p_cost_usd?: number
+          p_device_id: string
+          p_duration_ms: number
+          p_input_tokens?: number
+          p_model: string
+          p_output_tokens?: number
+          p_provider: string
+          p_task_id: string
+        }
+        Returns: number
+      }
+      connector_register_agents: {
+        Args: { p_agents: Json; p_device_id: string }
+        Returns: {
+          agent_id: string
+          capabilities: Json
+          model: string
+          name: string
+          provider: string
+          status: string
+        }[]
+      }
       connector_pair_redeem: {
         Args: {
           p_code_hash: string

@@ -3,7 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "description": "Crewboard multi-agent orchestration core (zero runtime dependencies).",
+  "bin": {
+    "crewboard": "connector/bin/crewboard.js"
+  },
   "scripts": {
     "test": "node --test"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.112.3"
   }
 }

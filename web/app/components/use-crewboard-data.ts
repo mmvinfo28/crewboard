@@ -170,12 +170,13 @@ export function useCrewboardData() {
     return data;
   }
 
-  async function addTask(title: string) {
+  async function addTask(title: string, assignedAgentId?: string) {
     if (!activePartyId || !userId) throw new Error("Create or select a party first");
     const { error: taskError } = await supabase.from("tasks").insert({
       party_id: activePartyId,
       created_by: userId,
       title: title.trim(),
+      assigned_agent_id: assignedAgentId || null,
       status: "queued",
     });
     if (taskError) throw taskError;
