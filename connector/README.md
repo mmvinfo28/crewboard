@@ -9,14 +9,14 @@ After that, use **Add repository** in the dashboard. Crewboard asks the connecto
 For Mac, Linux, or advanced setup, run:
 
 ```bash
-npx --yes github:mmvinfo28/crewboard#connector-v0.4.2 connect --background --startup
+npx --yes github:mmvinfo28/crewboard#connector-v0.4.3 connect --background --startup
 ```
 
 The shorter `npx @crewboard/connector connect` command will be available after the package is published to npm.
 
 Tasks without a selected Crewboard repository remain read-only. Add `--allow-writes` only when intentionally running unscoped advanced tasks.
 
-One detected tool can power several named Crewboard agents. Their names, chosen models, and standing instructions live in Crewboard; the provider login remains on this computer. Provider subscription balances are not exposed by the local CLIs, so Crewboard reports per-run usage rather than inventing an account-level “tokens left” number.
+One detected tool can power several named Crewboard agents. Their names, chosen models, and standing instructions live in Crewboard; the provider login remains on this computer. Crewboard reports per-run tokens from every supported CLI. For ChatGPT-authenticated Codex, it also reads the real quota percentage and reset time from the local Codex App Server. It never estimates a “tokens left” balance.
 
 Useful commands:
 

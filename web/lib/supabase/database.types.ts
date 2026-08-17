@@ -135,6 +135,69 @@ export type Database = {
           },
         ]
       }
+      provider_account_usage: {
+        Row: {
+          checked_at: string
+          daily_tokens: number | null
+          device_id: string
+          lifetime_tokens: number | null
+          party_id: string
+          plan_type: string | null
+          primary_resets_at: string | null
+          primary_used_percent: number | null
+          primary_window_minutes: number | null
+          provider: string
+          secondary_resets_at: string | null
+          secondary_used_percent: number | null
+          secondary_window_minutes: number | null
+        }
+        Insert: {
+          checked_at?: string
+          daily_tokens?: number | null
+          device_id: string
+          lifetime_tokens?: number | null
+          party_id: string
+          plan_type?: string | null
+          primary_resets_at?: string | null
+          primary_used_percent?: number | null
+          primary_window_minutes?: number | null
+          provider: string
+          secondary_resets_at?: string | null
+          secondary_used_percent?: number | null
+          secondary_window_minutes?: number | null
+        }
+        Update: {
+          checked_at?: string
+          daily_tokens?: number | null
+          device_id?: string
+          lifetime_tokens?: number | null
+          party_id?: string
+          plan_type?: string | null
+          primary_resets_at?: string | null
+          primary_used_percent?: number | null
+          primary_window_minutes?: number | null
+          provider?: string
+          secondary_resets_at?: string | null
+          secondary_used_percent?: number | null
+          secondary_window_minutes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_account_usage_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_account_usage_party_id_fkey"
+            columns: ["party_id"]
+            isOneToOne: false
+            referencedRelation: "parties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approval_requests: {
         Row: {
           created_at: string

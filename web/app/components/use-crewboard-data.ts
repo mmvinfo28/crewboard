@@ -16,6 +16,7 @@ export type ProjectRow = Tables["projects"]["Row"];
 export type DeviceFolderRow = Tables["device_folders"]["Row"];
 export type RepositorySetupRow = Tables["repository_setup_requests"]["Row"];
 export type UsageRow = Tables["usage_events"]["Row"];
+export type ProviderAccountUsageRow = Tables["provider_account_usage"]["Row"];
 export type ActivityRow = Tables["activity_events"]["Row"];
 export type Member = Tables["party_members"]["Row"] & {
   displayName: string;
@@ -43,6 +44,7 @@ export function useCrewboardData() {
   const [members, setMembers] = useState<Member[]>([]);
   const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [usageEvents, setUsageEvents] = useState<UsageRow[]>([]);
+  const [providerAccountUsage, setProviderAccountUsage] = useState<ProviderAccountUsageRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [realtimeConnected, setRealtimeConnected] = useState(false);
@@ -97,13 +99,13 @@ export function useCrewboardData() {
 
   const loadPartyData = useCallback(async (partyId: string) => {
     if (!partyId) {
-      setAgents([]); setTasks([]); setTaskRuns([]); setTaskProgress([]); setDevices([]); setDeviceSessions([]); setProjects([]); setDeviceFolders([]); setRepositorySetups([]); setMembers([]); setActivity([]); setUsageEvents([]);
+      setAgents([]); setTasks([]); setTaskRuns([]); setTaskProgress([]); setDevices([]); setDeviceSessions([]); setProjects([]); setDeviceFolders([]); setRepositorySetups([]); setMembers([]); setActivity([]); setUsageEvents([]); setProviderAccountUsage([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError("");
-    const [agentResult, taskResult, runResult, progressResult, deviceResult, sessionResult, projectResult, folderResult, setupResult, memberResult, activityResult, usageResult] = await Promise.all([
+    const [agentResult, taskResult, runResult, progressResult, deviceResult, sessionResult, projectResult, folderResult, setupResult, memberResult, activityResult, usageResult, providerUsageResult] = await Promise.all([
       supabase.from("agents").select("*").eq("party_id", partyId).order("created_at"),
       supabase.from("tasks").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(200),
       supabase.from("task_runs").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(200),
@@ -116,8 +118,9 @@ export function useCrewboardData() {
       supabase.from("party_members").select("*").eq("party_id", partyId).order("joined_at"),
       supabase.from("activity_events").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(100),
       supabase.from("usage_events").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(100),
+      supabase.from("provider_account_usage").select("*").eq("party_id", partyId),
     ]);
-    const firstError = [agentResult.error, taskResult.error, runResult.error, progressResult.error, deviceResult.error, sessionResult.error, projectResult.error, folderResult.error, setupResult.error, memberResult.error, activityResult.error, usageResult.error].find(Boolean);
+    const firstError = [agentResult.error, taskResult.error, runResult.error, progressResult.error, deviceResult.error, sessionResult.error, projectResult.error, folderResult.error, setupResult.error, memberResult.error, activityResult.error, usageResult.error, providerUsageResult.error].find(Boolean);
     if (firstError) {
       setError(firstError.message);
       setLoading(false);
@@ -145,6 +148,7 @@ export function useCrewboardData() {
     })));
     setActivity(activityResult.data ?? []);
     setUsageEvents(usageResult.data ?? []);
+    setProviderAccountUsage(providerUsageResult.data ?? []);
     setLoading(false);
   }, [supabase]);
 
@@ -207,6 +211,17 @@ export function useCrewboardData() {
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "usage_events", filter: `party_id=eq.${activePartyId}` }, (payload) => {
         setUsageEvents((rows) => [payload.new as UsageRow, ...rows].slice(0, 100));
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "provider_account_usage", filter: `party_id=eq.${activePartyId}` }, (payload) => {
+        if (payload.eventType === "DELETE") {
+          const oldRow = payload.old as Partial<ProviderAccountUsageRow>;
+          setProviderAccountUsage((rows) => rows.filter((row) => row.device_id !== oldRow.device_id || row.provider !== oldRow.provider));
+        } else {
+          const row = payload.new as ProviderAccountUsageRow;
+          setProviderAccountUsage((rows) => rows.some((item) => item.device_id === row.device_id && item.provider === row.provider)
+            ? rows.map((item) => item.device_id === row.device_id && item.provider === row.provider ? row : item)
+            : [row, ...rows]);
+        }
       })
       .subscribe((status) => setRealtimeConnected(status === "SUBSCRIBED"));
     return () => { setRealtimeConnected(false); void supabase.removeChannel(channel); };
@@ -322,7 +337,7 @@ export function useCrewboardData() {
 
   return {
     userId, email, displayName, setDisplayName, parties, activeParty, activePartyId, selectParty,
-    agents, tasks, taskRuns, taskProgress, devices, deviceSessions, projects, deviceFolders, repositorySetups, members, activity, usageEvents, loading, error, realtimeConnected,
+    agents, tasks, taskRuns, taskProgress, devices, deviceSessions, projects, deviceFolders, repositorySetups, members, activity, usageEvents, providerAccountUsage, loading, error, realtimeConnected,
     createParty, createAgent, addTask, requestRepositorySetup, resumeTask, retryTask, toggleAgent, updateAgentEffort, revokeDeviceSession, refreshDevices, refresh: () => loadPartyData(activePartyId),
   };
 }

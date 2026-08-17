@@ -2,12 +2,14 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import path from "node:path";
 import { rpc, rotateToken } from "./api.js";
+import { readCodexAccountUsage } from "./codex-usage.js";
 import { saveConfig } from "./config.js";
 import { cloneGitHubRepository, pathFingerprint, pickRepositoryFolder } from "./folder-picker.js";
 import { parseSplitPlan, runAgent } from "./runner.js";
 
 const HEARTBEAT_MS = 25_000;
 const FALLBACK_POLL_MS = 60_000;
+const PROVIDER_USAGE_REFRESH_MS = 5 * 60_000;
 
 export class Connector {
   constructor(config, detectedAgents, options) {
@@ -19,6 +21,8 @@ export class Connector {
     this.settingUpRepository = false;
     this.token = null;
     this.registeredAgents = [];
+    this.providerUsageUpdatedAt = 0;
+    this.providerUsageSyncing = false;
   }
 
   async refreshToken() {
@@ -61,6 +65,38 @@ export class Connector {
       p_connector_version: this.config.connectorVersion,
       p_lease_seconds: 90,
     });
+  }
+
+  async syncProviderUsage(force = false) {
+    if (this.providerUsageSyncing) return;
+    if (!force && Date.now() - this.providerUsageUpdatedAt < PROVIDER_USAGE_REFRESH_MS) return;
+    const codex = this.detectedAgents.find((agent) => agent.provider === "codex");
+    if (!codex) return;
+    this.providerUsageSyncing = true;
+    try {
+      const usage = await readCodexAccountUsage(codex);
+      if (!usage?.primary) return;
+      await this.call("connector_record_provider_usage", {
+        p_party_id: this.config.device.partyId,
+        p_device_id: this.config.device.id,
+        p_provider: "codex",
+        p_plan_type: usage.planType,
+        p_primary_used_percent: usage.primary.usedPercent,
+        p_primary_window_minutes: usage.primary.windowMinutes,
+        p_primary_resets_at: usage.primary.resetsAt ? new Date(usage.primary.resetsAt * 1000).toISOString() : null,
+        p_secondary_used_percent: usage.secondary?.usedPercent ?? null,
+        p_secondary_window_minutes: usage.secondary?.windowMinutes ?? null,
+        p_secondary_resets_at: usage.secondary?.resetsAt ? new Date(usage.secondary.resetsAt * 1000).toISOString() : null,
+        p_lifetime_tokens: usage.lifetimeTokens,
+        p_daily_tokens: usage.dailyTokens,
+      });
+      this.providerUsageUpdatedAt = Date.now();
+    } catch (error) {
+      console.error(`Could not read Codex account limits: ${error.message}`);
+    } finally {
+      this.providerUsageUpdatedAt = Date.now();
+      this.providerUsageSyncing = false;
+    }
   }
 
   async claimTasks() {
@@ -136,6 +172,7 @@ export class Connector {
 
   async sync() {
     await this.registerAgents();
+    await this.syncProviderUsage();
     await this.claimRepositorySetup();
     await this.claimTasks();
   }
@@ -202,6 +239,7 @@ export class Connector {
         p_cached_input_tokens: result.usage?.cachedInputTokens || 0,
         p_cost_usd: result.usage?.costUsd || 0,
       });
+      if (agent.provider === "codex") void this.syncProviderUsage(true);
       console.log(success ? `${task.task_kind === "planner" ? "Split created" : "Completed"} in ${Math.round((Date.now() - startedAt) / 1000)}s` : `Failed: ${text.slice(0, 240)}`);
     } catch (error) {
       await this.call("complete_task_run", {
@@ -220,6 +258,7 @@ export class Connector {
     const token = await this.refreshToken();
     await this.registerAgents();
     await this.heartbeat();
+    await this.syncProviderUsage(true);
     console.log(`Connected device: ${this.config.device.id}`);
     console.log(`Agents online: ${this.registeredAgents.map((agent) => agent.name).join(", ") || "none"}`);
     console.log(`Workspace: ${this.options.workspace}`);

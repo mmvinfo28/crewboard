@@ -32,6 +32,7 @@ namespace CrewboardControl
         private readonly Button stopButton;
         private readonly Button restartButton;
         private readonly Button pairButton;
+        private readonly Button codexLoginButton;
         private readonly Button refreshButton;
         private readonly Timer refreshTimer;
         private bool busy;
@@ -81,8 +82,9 @@ namespace CrewboardControl
             Button logButton = NewButton("View Log", 286, 248, 246, Color.FromArgb(45, 50, 61));
             Controls.AddRange(new Control[] { dashboardButton, logButton });
 
-            pairButton = NewButton("Pair / Reconnect", 28, 298, 504, Color.FromArgb(102, 66, 184));
-            Controls.Add(pairButton);
+            pairButton = NewButton("Pair / Reconnect", 28, 298, 246, Color.FromArgb(102, 66, 184));
+            codexLoginButton = NewButton("Sign in to Codex", 286, 298, 246, Color.FromArgb(102, 66, 184));
+            Controls.AddRange(new Control[] { pairButton, codexLoginButton });
 
             Controls.Add(NewLabel("Activity", 30, 353, 9F, FontStyle.Bold, Color.White, 120, 23));
             activityBox = new TextBox {
@@ -101,6 +103,7 @@ namespace CrewboardControl
             restartButton.Click += delegate { RunAction("restart"); };
             refreshButton.Click += delegate { UpdateStatus(true); };
             pairButton.Click += delegate { BeginPairing(); };
+            codexLoginButton.Click += delegate { BeginCodexLogin(); };
             dashboardButton.Click += delegate { OpenDashboard(); };
             logButton.Click += delegate { OpenLog(); };
 
@@ -163,6 +166,7 @@ namespace CrewboardControl
             restartButton.Enabled = !value;
             refreshButton.Enabled = !value;
             pairButton.Enabled = !value;
+            codexLoginButton.Enabled = !value;
         }
 
         private void UpdateStatus(bool showActivity)
@@ -203,6 +207,7 @@ namespace CrewboardControl
                 UseWaitCursor = false;
                 refreshButton.Enabled = true;
                 pairButton.Enabled = true;
+                codexLoginButton.Enabled = true;
             }
         }
 
@@ -219,6 +224,23 @@ namespace CrewboardControl
                 });
                 OpenDashboard();
                 activityBox.Text = "A pairing window is open. Copy its code into Crewboard > Devices > Connect device.";
+            } catch (Exception error) {
+                activityBox.Text = error.Message;
+            }
+        }
+
+        private void BeginCodexLogin()
+        {
+            try {
+                string node = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "nodejs", "node.exe");
+                if (!File.Exists(node)) node = "node.exe";
+                Process.Start(new ProcessStartInfo {
+                    FileName = "cmd.exe",
+                    Arguments = "/k \"\"" + node + "\" \"" + cliPath + "\" codex-login\"",
+                    WorkingDirectory = repoRoot,
+                    UseShellExecute = true
+                });
+                activityBox.Text = "Codex sign-in is open. Finish in the browser, close that window, then click Restart.";
             } catch (Exception error) {
                 activityBox.Text = error.Message;
             }

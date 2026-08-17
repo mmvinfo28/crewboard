@@ -13,7 +13,7 @@ export async function installStartup(serverUrl) {
   const script = [
     "@echo off",
     "title Crewboard Connector",
-    `npx --yes github:mmvinfo28/crewboard#connector-v0.4.2 start --url "${serverUrl}"`,
+    `npx --yes github:mmvinfo28/crewboard#connector-v0.4.3 start --url "${serverUrl}"`,
     "",
   ].join("\r\n");
   await writeFile(startupPath, script, { encoding: "utf8", mode: 0o600 });

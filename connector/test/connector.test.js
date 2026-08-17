@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import test from "node:test";
 import { normalizeServerUrl } from "../src/api.js";
 import { compareCliVersions, newestCli } from "../src/detect.js";
+import { normalizeCodexAccountUsage } from "../src/codex-usage.js";
 import { normalizeGitHubRepositoryUrl, pathFingerprint } from "../src/folder-picker.js";
 import { effortArgs, parseSplitPlan, progressFromEvent } from "../src/runner.js";
 
@@ -55,6 +56,19 @@ test("selects the newest installed Codex CLI instead of the first path", () => {
     { command: "old", version: "codex-cli 0.130.0-alpha.5" },
     { command: "new", version: "codex-cli 0.147.0" },
   ]).command, "new");
+});
+
+test("normalizes real Codex account limits without inventing remaining tokens", () => {
+  const usage = normalizeCodexAccountUsage(
+    { account: { type: "chatgpt", planType: "pro" } },
+    { rateLimits: { limitId: "codex", primary: { usedPercent: 25, windowDurationMins: 300, resetsAt: 1_800_000_000 }, secondary: null } },
+    { summary: { lifetimeTokens: 1_234_567 }, dailyUsageBuckets: [{ startDate: "2099-01-01", tokens: 12_345 }] },
+  );
+  assert.equal(usage.planType, "pro");
+  assert.equal(usage.primary.usedPercent, 25);
+  assert.equal(usage.primary.windowMinutes, 300);
+  assert.equal(usage.lifetimeTokens, 1_234_567);
+  assert.equal(usage.dailyTokens, 12_345);
 });
 
 test("turns provider events into sanitized progress", () => {

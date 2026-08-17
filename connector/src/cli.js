@@ -3,11 +3,12 @@ import path from "node:path";
 import { normalizeServerUrl, redeemPairing, startPairing } from "./api.js";
 import { clearConfig, configLocation, loadConfig, saveConfig } from "./config.js";
 import { Connector } from "./connector.js";
+import { codexLoginStatus, startCodexLogin } from "./codex-usage.js";
 import { detectAgents, platformName } from "./detect.js";
 import { managedStatus, startManaged, stopManaged } from "./process-manager.js";
 import { installStartup, removeStartup, startupEnabled } from "./startup.js";
 
-const VERSION = "0.4.2";
+const VERSION = "0.4.3";
 const DEFAULT_SERVER = process.env.CREWBOARD_URL || "https://swarm-eight-azure.vercel.app";
 
 function argument(args, name, fallback = null) {
@@ -16,7 +17,7 @@ function argument(args, name, fallback = null) {
 }
 
 function help() {
-  console.log(`Crewboard connector ${VERSION}\n\nCommands:\n  connect          Pair this computer and start listening\n  run              Start in the current terminal\n  start            Start in the background\n  stop             Stop the background connector\n  restart          Restart the background connector\n  status           Show connection and local-agent status\n  startup on|off   Start or stop automatic launch at Windows sign-in\n  disconnect       Remove the saved pairing from this computer\n\nOptions:\n  --url <url>       Crewboard server URL\n  --workspace <dir> Folder agents may work inside (default: current folder)\n  --allow-writes    Allow Claude, Codex, and Cursor to edit workspace files\n  --background      Keep running after the pairing window closes\n  --startup         Start Crewboard automatically at Windows sign-in`);
+  console.log(`Crewboard connector ${VERSION}\n\nCommands:\n  connect          Pair this computer and start listening\n  run              Start in the current terminal\n  start            Start in the background\n  stop             Stop the background connector\n  restart          Restart the background connector\n  status           Show connection and local-agent status\n  codex-login      Sign the local Codex CLI into ChatGPT\n  startup on|off   Start or stop automatic launch at Windows sign-in\n  disconnect       Remove the saved pairing from this computer\n\nOptions:\n  --url <url>       Crewboard server URL\n  --workspace <dir> Folder agents may work inside (default: current folder)\n  --allow-writes    Allow Claude, Codex, and Cursor to edit workspace files\n  --background      Keep running after the pairing window closes\n  --startup         Start Crewboard automatically at Windows sign-in`);
 }
 
 async function waitForApproval(serverUrl, challenge) {
@@ -96,6 +97,8 @@ async function status() {
   console.log(`Log: ${processStatus.logPath}`);
   console.log(`Config: ${configLocation()}`);
   console.log(`Local agents: ${agents.length ? agents.map((agent) => `${agent.name} (${agent.model}${agent.version ? `; ${agent.version}` : ""})`).join(", ") : "none detected"}`);
+  const codex = agents.find((agent) => agent.provider === "codex");
+  if (codex) console.log(`Codex account: ${codexLoginStatus(codex).message}`);
   console.log(`Start at sign-in: ${await startupEnabled() ? "enabled" : "disabled"}`);
 }
 
@@ -122,6 +125,13 @@ export async function main(args) {
     return;
   }
   if (command === "status") return status();
+  if (command === "codex-login") {
+    const codex = detectAgents().find((agent) => agent.provider === "codex");
+    if (!codex) throw new Error("Codex is not installed");
+    await startCodexLogin(codex);
+    console.log("Codex is signed in. Restart Crewboard to refresh account limits.");
+    return;
+  }
   if (command === "startup") {
     const mode = args[1] || "status";
     if (mode === "on") { const config = await loadConfig(); if (!config) throw new Error("Pair this computer before enabling startup"); await installStartup(config.serverUrl); console.log("Crewboard will start at Windows sign-in."); return; }
