@@ -71,6 +71,7 @@ export type Database = {
           owner_id: string
           party_id: string
           provider: string
+          reasoning_effort: string
           status: string
           updated_at: string
         }
@@ -88,6 +89,7 @@ export type Database = {
           owner_id: string
           party_id: string
           provider: string
+          reasoning_effort?: string
           status?: string
           updated_at?: string
         }
@@ -105,6 +107,7 @@ export type Database = {
           owner_id?: string
           party_id?: string
           provider?: string
+          reasoning_effort?: string
           status?: string
           updated_at?: string
         }
@@ -1187,6 +1190,7 @@ export type Database = {
           model: string
           name: string
           provider: string
+          reasoning_effort: string
           status: string
         }[]
       }
@@ -1242,6 +1246,7 @@ export type Database = {
           p_model: string
           p_name: string
           p_provider: string
+          p_reasoning_effort: string
         }
         Returns: string
       }

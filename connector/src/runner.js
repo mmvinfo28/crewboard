@@ -6,6 +6,15 @@ import crypto from "node:crypto";
 
 const MAX_OUTPUT_BYTES = 12 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
+const SUPPORTED_EFFORTS = new Set(["low", "medium", "high", "xhigh", "max"]);
+
+export function effortArgs(provider, effort) {
+  const value = `${effort || ""}`.trim().toLowerCase();
+  if (!SUPPORTED_EFFORTS.has(value)) return [];
+  if (provider === "claude") return ["--effort", value];
+  if (provider === "codex") return ["-c", `model_reasoning_effort="${value}"`];
+  return [];
+}
 
 function collect(stream, chunks, state, onLine) {
   let pending = "";
@@ -155,6 +164,7 @@ export async function runAgent(agent, task, options) {
     const events = [];
     const args = [...(local.commandArgs || []), "-p", "--output-format", "stream-json", "--verbose", "--permission-mode", permissionMode];
     if (!agent.is_default && agent.model && agent.model.toLowerCase() !== "default") args.push("--model", agent.model);
+    args.push(...effortArgs(agent.provider, agent.reasoning_effort));
     const result = await spawnAgent(local.command, args, { ...options, env: local.env, taskId: task.task_id, onLine: eventCollector("claude", options, events) }, prompt);
     const payload = events.findLast((event) => event.type === "result");
     return {
@@ -168,6 +178,7 @@ export async function runAgent(agent, task, options) {
     const outputPath = path.join(os.tmpdir(), `crewboard-codex-${crypto.randomBytes(6).toString("hex")}.txt`);
     const args = [...(local.commandArgs || []), "exec", "--json", "--skip-git-repo-check", "--sandbox", options.allowWrites ? "workspace-write" : "read-only", "-C", options.workspace, "-o", outputPath];
     if (!agent.is_default && agent.model && agent.model.toLowerCase() !== "default") args.push("--model", agent.model);
+    args.push(...effortArgs(agent.provider, agent.reasoning_effort));
     args.push(prompt);
     const events = [];
     const result = await spawnAgent(local.command, args, { ...options, env: local.env, taskId: task.task_id, onLine: eventCollector("codex", options, events) });

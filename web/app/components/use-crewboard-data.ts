@@ -250,12 +250,13 @@ export function useCrewboardData() {
     await loadPartyData(activePartyId);
   }
 
-  async function createAgent(input: { deviceId: string; name: string; provider: string; model: string; instructions?: string; contextWindowTokens?: number | null }) {
+  async function createAgent(input: { deviceId: string; name: string; provider: string; model: string; reasoningEffort: string; instructions?: string; contextWindowTokens?: number | null }) {
     const { data, error: agentError } = await supabase.rpc("create_named_agent", {
       p_device_id: input.deviceId,
       p_name: input.name.trim(),
       p_provider: input.provider,
       p_model: input.model.trim(),
+      p_reasoning_effort: input.reasoningEffort,
       p_instructions: input.instructions?.trim() || "",
       p_context_window_tokens: input.contextWindowTokens ?? undefined,
     });
@@ -302,6 +303,12 @@ export function useCrewboardData() {
     await loadPartyData(activePartyId);
   }
 
+  async function updateAgentEffort(agentId: string, reasoningEffort: string) {
+    const { error: updateError } = await supabase.from("agents").update({ reasoning_effort: reasoningEffort }).eq("id", agentId).eq("is_default", false);
+    if (updateError) throw updateError;
+    await loadPartyData(activePartyId);
+  }
+
   async function revokeDeviceSession(sessionId: string) {
     const response = await fetch("/api/connector/session/revoke", {
       method: "POST",
@@ -316,6 +323,6 @@ export function useCrewboardData() {
   return {
     userId, email, displayName, setDisplayName, parties, activeParty, activePartyId, selectParty,
     agents, tasks, taskRuns, taskProgress, devices, deviceSessions, projects, deviceFolders, repositorySetups, members, activity, usageEvents, loading, error, realtimeConnected,
-    createParty, createAgent, addTask, requestRepositorySetup, resumeTask, retryTask, toggleAgent, revokeDeviceSession, refreshDevices, refresh: () => loadPartyData(activePartyId),
+    createParty, createAgent, addTask, requestRepositorySetup, resumeTask, retryTask, toggleAgent, updateAgentEffort, revokeDeviceSession, refreshDevices, refresh: () => loadPartyData(activePartyId),
   };
 }

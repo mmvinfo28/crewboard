@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import test from "node:test";
 import { normalizeServerUrl } from "../src/api.js";
 import { normalizeGitHubRepositoryUrl, pathFingerprint } from "../src/folder-picker.js";
-import { parseSplitPlan, progressFromEvent } from "../src/runner.js";
+import { effortArgs, parseSplitPlan, progressFromEvent } from "../src/runner.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -38,6 +38,13 @@ test("parses a strict automatic task split", () => {
   assert.equal(items.length, 2);
   assert.equal(items[1].agent_id, "two");
   assert.throws(() => parseSplitPlan('{"tasks":[]}'), /valid task split/);
+});
+
+test("maps saved effort to supported local provider flags", () => {
+  assert.deepEqual(effortArgs("claude", "high"), ["--effort", "high"]);
+  assert.deepEqual(effortArgs("codex", "xhigh"), ["-c", 'model_reasoning_effort="xhigh"']);
+  assert.deepEqual(effortArgs("cursor", "high"), []);
+  assert.deepEqual(effortArgs("codex", "auto"), []);
 });
 
 test("turns provider events into sanitized progress", () => {

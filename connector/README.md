@@ -9,7 +9,7 @@ After that, use **Add repository** in the dashboard. Crewboard asks the connecto
 For Mac, Linux, or advanced setup, run:
 
 ```bash
-npx --yes github:mmvinfo28/crewboard#connector-v0.4.0 connect
+npx --yes github:mmvinfo28/crewboard#connector-v0.4.1 connect
 ```
 
 The shorter `npx @crewboard/connector connect` command will be available after the package is published to npm.
