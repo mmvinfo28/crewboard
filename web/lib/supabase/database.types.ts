@@ -59,10 +59,13 @@ export type Database = {
       agents: {
         Row: {
           capabilities: Json
+          context_window_tokens: number | null
           created_at: string
           current_task_summary: string | null
           device_id: string | null
           id: string
+          instructions: string
+          is_default: boolean
           model: string
           name: string
           owner_id: string
@@ -73,10 +76,13 @@ export type Database = {
         }
         Insert: {
           capabilities?: Json
+          context_window_tokens?: number | null
           created_at?: string
           current_task_summary?: string | null
           device_id?: string | null
           id?: string
+          instructions?: string
+          is_default?: boolean
           model: string
           name: string
           owner_id: string
@@ -87,10 +93,13 @@ export type Database = {
         }
         Update: {
           capabilities?: Json
+          context_window_tokens?: number | null
           created_at?: string
           current_task_summary?: string | null
           device_id?: string | null
           id?: string
+          instructions?: string
+          is_default?: boolean
           model?: string
           name?: string
           owner_id?: string
@@ -1088,6 +1097,9 @@ export type Database = {
         Returns: {
           agent_id: string
           capabilities: Json
+          context_window_tokens: number
+          instructions: string
+          is_default: boolean
           model: string
           name: string
           provider: string
@@ -1137,6 +1149,17 @@ export type Database = {
           session_id: string
           token_generation: number
         }[]
+      }
+      create_named_agent: {
+        Args: {
+          p_context_window_tokens?: number
+          p_device_id: string
+          p_instructions?: string
+          p_model: string
+          p_name: string
+          p_provider: string
+        }
+        Returns: string
       }
       create_party: {
         Args: { party_name: string; party_slug: string }

@@ -130,6 +130,7 @@ export class Connector {
   }
 
   async sync() {
+    await this.registerAgents();
     await this.claimRepositorySetup();
     await this.claimTasks();
   }
@@ -141,7 +142,7 @@ export class Connector {
     try {
       const projectWorkspace = task.project_id ? this.config.projectPaths?.[task.project_id] : null;
       if (task.project_id && !projectWorkspace) throw new Error("This repository is not linked on this computer");
-      const result = await runAgent(agent.local, task, {
+      const result = await runAgent(agent, task, {
         ...this.options,
         workspace: projectWorkspace || this.options.workspace,
         allowWrites: task.project_id ? true : this.options.allowWrites,
@@ -162,6 +163,10 @@ export class Connector {
         p_provider: agent.provider,
         p_model: agent.model,
         p_duration_ms: Date.now() - startedAt,
+        p_input_tokens: result.usage?.inputTokens || 0,
+        p_output_tokens: result.usage?.outputTokens || 0,
+        p_cached_input_tokens: result.usage?.cachedInputTokens || 0,
+        p_cost_usd: result.usage?.costUsd || 0,
       });
       console.log(success ? `Completed in ${Math.round((Date.now() - startedAt) / 1000)}s` : `Failed: ${text.slice(0, 240)}`);
     } catch (error) {

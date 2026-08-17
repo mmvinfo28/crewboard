@@ -5,7 +5,7 @@ import { clearConfig, configLocation, loadConfig, saveConfig } from "./config.js
 import { Connector } from "./connector.js";
 import { detectAgents, platformName } from "./detect.js";
 
-const VERSION = "0.2.1";
+const VERSION = "0.3.0";
 const DEFAULT_SERVER = process.env.CREWBOARD_URL || "https://swarm-eight-azure.vercel.app";
 
 function argument(args, name, fallback = null) {
@@ -14,7 +14,7 @@ function argument(args, name, fallback = null) {
 }
 
 function help() {
-  console.log(`Crewboard connector ${VERSION}\n\nCommands:\n  connect          Pair this computer and start listening\n  run              Start using a saved pairing\n  status           Show detected local agents\n  disconnect       Remove the saved pairing from this computer\n\nOptions:\n  --url <url>       Crewboard server URL\n  --workspace <dir> Folder agents may work inside (default: current folder)\n  --allow-writes    Allow Claude and Codex to edit workspace files`);
+  console.log(`Crewboard connector ${VERSION}\n\nCommands:\n  connect          Pair this computer and start listening\n  run              Start using a saved pairing\n  status           Show detected local agents\n  disconnect       Remove the saved pairing from this computer\n\nOptions:\n  --url <url>       Crewboard server URL\n  --workspace <dir> Folder agents may work inside (default: current folder)\n  --allow-writes    Allow Claude, Codex, and Cursor to edit workspace files`);
 }
 
 async function waitForApproval(serverUrl, challenge) {
@@ -37,7 +37,7 @@ function connectorOptions(args) {
 async function connect(args) {
   const serverUrl = normalizeServerUrl(argument(args, "--url", DEFAULT_SERVER));
   const agents = detectAgents();
-  if (!agents.length) throw new Error("No supported local agents found. Install or sign in to Claude Code or Codex first");
+  if (!agents.length) throw new Error("No supported local agents found. Install or sign in to Claude Code, Codex, or Cursor first");
   console.log(`Detected: ${agents.map((agent) => agent.name).join(", ")}`);
   const challenge = await startPairing(serverUrl, {
     deviceName: os.hostname(), platform: platformName(), connectorVersion: VERSION,

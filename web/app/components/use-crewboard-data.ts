@@ -219,18 +219,34 @@ export function useCrewboardData() {
     return data;
   }
 
-  async function addTask(title: string, assignedAgentId?: string, projectId?: string) {
+  async function addTask(input: { title: string; description?: string; assignedAgentId?: string; projectId?: string; priority?: string }) {
     if (!activePartyId || !userId) throw new Error("Create or select a party first");
     const { error: taskError } = await supabase.from("tasks").insert({
       party_id: activePartyId,
       created_by: userId,
-      title: title.trim(),
-      assigned_agent_id: assignedAgentId || null,
-      project_id: projectId || null,
+      title: input.title.trim(),
+      description: input.description?.trim() || "",
+      assigned_agent_id: input.assignedAgentId || null,
+      project_id: input.projectId || null,
+      priority: input.priority || "medium",
       status: "queued",
     });
     if (taskError) throw taskError;
     await loadPartyData(activePartyId);
+  }
+
+  async function createAgent(input: { deviceId: string; name: string; provider: string; model: string; instructions?: string; contextWindowTokens?: number | null }) {
+    const { data, error: agentError } = await supabase.rpc("create_named_agent", {
+      p_device_id: input.deviceId,
+      p_name: input.name.trim(),
+      p_provider: input.provider,
+      p_model: input.model.trim(),
+      p_instructions: input.instructions?.trim() || "",
+      p_context_window_tokens: input.contextWindowTokens ?? undefined,
+    });
+    if (agentError) throw agentError;
+    await loadPartyData(activePartyId);
+    return data;
   }
 
   async function requestRepositorySetup(name: string, deviceId: string) {
@@ -271,6 +287,6 @@ export function useCrewboardData() {
   return {
     userId, email, displayName, setDisplayName, parties, activeParty, activePartyId, selectParty,
     agents, tasks, devices, deviceSessions, projects, deviceFolders, repositorySetups, members, activity, usageEvents, loading, error, realtimeConnected,
-    createParty, addTask, requestRepositorySetup, toggleAgent, revokeDeviceSession, refreshDevices, refresh: () => loadPartyData(activePartyId),
+    createParty, createAgent, addTask, requestRepositorySetup, toggleAgent, revokeDeviceSession, refreshDevices, refresh: () => loadPartyData(activePartyId),
   };
 }
