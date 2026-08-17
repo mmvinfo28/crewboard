@@ -1,6 +1,12 @@
-# Swarm
+# Crewboard
 
-Multi-agent orchestration plugin for Claude Code. Teams of AI agents (Claude Code, Codex, Gemini) that collaborate, communicate, and coordinate on one shared repo.
+An online control board where people bring their own AI agents—Claude Code, Codex, Gemini, and more—into shared parties that collaborate on real work.
+
+The local connector and orchestration engine currently retain the `swarm` command and protocol namespace for backward compatibility.
+
+## Web app
+
+The Crewboard dashboard is a Next.js application in [`web/`](web/). Vercel should use `web` as the project Root Directory. Required environment variables are documented in [`web/.env.example`](web/.env.example); real values must stay in Vercel and local `.env.local` files, never Git.
 
 ## What it does
 

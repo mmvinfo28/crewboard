@@ -1,0 +1,211 @@
+openapi: 3.1.0
+info:
+  title: Crewboard Connector API
+  version: 0.1.0
+  description: Pairing and token exchange for the local Crewboard connector.
+servers:
+  - url: https://crewboard.vercel.app
+paths:
+  /api/connector/version:
+    get:
+      operationId: getConnectorVersionPolicy
+      responses:
+        "200":
+          description: Connector version policy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionPolicy"
+  /api/connector/pair/start:
+    post:
+      operationId: startPairing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartPairingRequest"
+      responses:
+        "201":
+          description: Pairing challenge created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PairingChallenge"
+        "429":
+          $ref: "#/components/responses/Error"
+        "426":
+          $ref: "#/components/responses/Error"
+  /api/connector/pair/approve:
+    post:
+      operationId: approvePairing
+      description: Browser-only endpoint authenticated by the user's Supabase session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, partyId]
+              properties:
+                code: { type: string, pattern: "^[A-Z0-9]{4}-?[A-Z0-9]{4}$" }
+                partyId: { type: string, format: uuid }
+      responses:
+        "200": { description: Device pairing approved. }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/connector/session/revoke:
+    post:
+      operationId: revokeDeviceSession
+      description: Browser-only endpoint authenticated by the user's Supabase session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [sessionId]
+              properties:
+                sessionId: { type: string, format: uuid }
+      responses:
+        "200": { description: Device session revoked. }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/connector/pair/redeem:
+    post:
+      operationId: redeemPairing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, pairingSecret]
+              properties:
+                code: { type: string }
+                pairingSecret: { type: string }
+      responses:
+        "200":
+          description: One-time pairing redemption.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceCredentials"
+        "409": { $ref: "#/components/responses/Error" }
+  /api/connector/token:
+    post:
+      operationId: rotateDeviceToken
+      security:
+        - deviceRefreshToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [connectorVersion]
+              properties:
+                connectorVersion: { type: string, minLength: 1, maxLength: 40 }
+      responses:
+        "200":
+          description: Rotated refresh token and five-minute Supabase access token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401": { $ref: "#/components/responses/Error" }
+        "426": { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    deviceRefreshToken:
+      type: http
+      scheme: bearer
+  responses:
+    Error:
+      description: API error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    StartPairingRequest:
+      type: object
+      additionalProperties: false
+      required: [deviceName, platform, connectorVersion]
+      properties:
+        deviceName: { type: string, minLength: 1, maxLength: 120 }
+        platform: { type: string, enum: [macos, windows, linux, unknown] }
+        connectorVersion: { type: string, minLength: 1, maxLength: 40 }
+    PairingChallenge:
+      type: object
+      required: [pairingId, code, pairingSecret, expiresAt, pollAfterSeconds]
+      properties:
+        pairingId: { type: string, format: uuid }
+        code: { type: string }
+        pairingSecret: { type: string }
+        expiresAt: { type: string, format: date-time }
+        pollAfterSeconds: { type: integer, minimum: 1 }
+    DeviceCredentials:
+      type: object
+      required: [device, session, refreshToken, tokenEndpoint]
+      properties:
+        device:
+          type: object
+          required: [id, partyId, ownerId]
+          properties:
+            id: { type: string, format: uuid }
+            partyId: { type: string, format: uuid }
+            ownerId: { type: string, format: uuid }
+        session:
+          type: object
+          required: [id, expiresAt]
+          properties:
+            id: { type: string, format: uuid }
+            expiresAt: { type: string, format: date-time }
+        refreshToken: { type: string }
+        tokenEndpoint: { type: string }
+    TokenResponse:
+      type: object
+      required: [accessToken, expiresIn, refreshToken, identity, supabase]
+      properties:
+        accessToken: { type: string }
+        expiresIn: { type: integer, const: 300 }
+        refreshToken: { type: string }
+        identity:
+          type: object
+          required: [sessionId, deviceId, partyId, ownerId, tokenGeneration]
+          properties:
+            sessionId: { type: string, format: uuid }
+            deviceId: { type: string, format: uuid }
+            partyId: { type: string, format: uuid }
+            ownerId: { type: string, format: uuid }
+            tokenGeneration: { type: integer, minimum: 1 }
+        supabase:
+          type: object
+          required: [url, publishableKey, wakeupTopic]
+          properties:
+            url: { type: string, format: uri }
+            publishableKey: { type: string }
+            wakeupTopic: { type: string }
+    VersionPolicy:
+      type: object
+      required: [minimumVersion, blockedVersions]
+      properties:
+        minimumVersion: { type: string }
+        blockedVersions:
+          type: array
+          items: { type: string }
+        message: { type: [string, "null"] }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }

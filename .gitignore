@@ -1,3 +1,4 @@
 node_modules/
 .swarm-server/
 .claude/
+.vercel/

@@ -1,9 +1,22 @@
 {
-  "name": "swarm",
-  "version": "0.1.0",
+  "name": "crewboard-core",
+  "version": "0.4.3",
   "private": true,
-  "description": "Multi-agent orchestration plugin — core library (zero runtime deps).",
+  "description": "Crewboard multi-agent orchestration and local connector.",
+  "bin": {
+    "crewboard": "connector/bin/crewboard.js"
+  },
   "scripts": {
+    "crewboard": "node connector/bin/crewboard.js",
+    "crewboard:start": "node connector/bin/crewboard.js start",
+    "crewboard:stop": "node connector/bin/crewboard.js stop",
+    "crewboard:restart": "node connector/bin/crewboard.js restart",
+    "crewboard:status": "node connector/bin/crewboard.js status",
+    "crewboard:control": "start \"\" \"Crewboard Control.exe\"",
+    "crewboard:control:build": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build-crewboard-control.ps1",
     "test": "node --test"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.112.3"
   }
 }
