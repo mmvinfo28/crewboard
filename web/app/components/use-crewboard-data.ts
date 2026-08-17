@@ -288,6 +288,12 @@ export function useCrewboardData() {
     await loadPartyData(activePartyId);
   }
 
+  async function retryTask(taskId: string) {
+    const { error: retryError } = await supabase.rpc("retry_failed_task", { p_task_id: taskId });
+    if (retryError) throw retryError;
+    await loadPartyData(activePartyId);
+  }
+
   async function toggleAgent(agent: AgentRow) {
     if (agent.status === "offline") return;
     const nextStatus = agent.status === "paused" ? "ready" : "paused";
@@ -310,6 +316,6 @@ export function useCrewboardData() {
   return {
     userId, email, displayName, setDisplayName, parties, activeParty, activePartyId, selectParty,
     agents, tasks, taskRuns, taskProgress, devices, deviceSessions, projects, deviceFolders, repositorySetups, members, activity, usageEvents, loading, error, realtimeConnected,
-    createParty, createAgent, addTask, requestRepositorySetup, resumeTask, toggleAgent, revokeDeviceSession, refreshDevices, refresh: () => loadPartyData(activePartyId),
+    createParty, createAgent, addTask, requestRepositorySetup, resumeTask, retryTask, toggleAgent, revokeDeviceSession, refreshDevices, refresh: () => loadPartyData(activePartyId),
   };
 }

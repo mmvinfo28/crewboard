@@ -1282,6 +1282,10 @@ export type Database = {
         Args: { p_task_id: string }
         Returns: boolean
       }
+      retry_failed_task: {
+        Args: { p_task_id: string }
+        Returns: boolean
+      }
       redeem_party_invitation: {
         Args: { p_code_hash: string; p_user_id: string }
         Returns: {
