@@ -610,6 +610,8 @@ export type Database = {
           id: string
           name: string
           party_id: string
+          repository_url: string | null
+          source_type: string
           updated_at: string
         }
         Insert: {
@@ -619,6 +621,8 @@ export type Database = {
           id?: string
           name: string
           party_id: string
+          repository_url?: string | null
+          source_type?: string
           updated_at?: string
         }
         Update: {
@@ -628,6 +632,8 @@ export type Database = {
           id?: string
           name?: string
           party_id?: string
+          repository_url?: string | null
+          source_type?: string
           updated_at?: string
         }
         Relationships: [
@@ -660,7 +666,9 @@ export type Database = {
           name: string
           party_id: string
           project_id: string | null
+          repository_url: string | null
           requested_by: string
+          source_type: string
           status: string
           updated_at: string
         }
@@ -676,7 +684,9 @@ export type Database = {
           name: string
           party_id: string
           project_id?: string | null
+          repository_url?: string | null
           requested_by: string
+          source_type?: string
           status?: string
           updated_at?: string
         }
@@ -692,7 +702,9 @@ export type Database = {
           name?: string
           party_id?: string
           project_id?: string | null
+          repository_url?: string | null
           requested_by?: string
+          source_type?: string
           status?: string
           updated_at?: string
         }
@@ -725,6 +737,47 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      task_progress_events: {
+        Row: {
+          created_at: string
+          device_id: string
+          id: number
+          kind: string
+          message: string
+          metadata: Json
+          party_id: string
+          run_id: string
+          task_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          id?: never
+          kind: string
+          message: string
+          metadata?: Json
+          party_id: string
+          run_id: string
+          task_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          id?: never
+          kind?: string
+          message?: string
+          metadata?: Json
+          party_id?: string
+          run_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          { foreignKeyName: "task_progress_events_device_id_fkey"; columns: ["device_id"]; isOneToOne: false; referencedRelation: "devices"; referencedColumns: ["id"] },
+          { foreignKeyName: "task_progress_events_party_id_fkey"; columns: ["party_id"]; isOneToOne: false; referencedRelation: "parties"; referencedColumns: ["id"] },
+          { foreignKeyName: "task_progress_events_run_id_fkey"; columns: ["run_id"]; isOneToOne: false; referencedRelation: "task_runs"; referencedColumns: ["id"] },
+          { foreignKeyName: "task_progress_events_task_id_fkey"; columns: ["task_id"]; isOneToOne: false; referencedRelation: "tasks"; referencedColumns: ["id"] },
         ]
       }
       task_runs: {
@@ -830,10 +883,14 @@ export type Database = {
           description: string
           id: string
           party_id: string
+          parent_task_id: string | null
           priority: string
+          progress_summary: string | null
           project_id: string | null
           required_capabilities: Json
+          split_agent_ids: string[]
           status: string
+          task_kind: string
           title: string
           updated_at: string
         }
@@ -846,10 +903,14 @@ export type Database = {
           description?: string
           id?: string
           party_id: string
+          parent_task_id?: string | null
           priority?: string
+          progress_summary?: string | null
           project_id?: string | null
           required_capabilities?: Json
+          split_agent_ids?: string[]
           status?: string
+          task_kind?: string
           title: string
           updated_at?: string
         }
@@ -862,10 +923,14 @@ export type Database = {
           description?: string
           id?: string
           party_id?: string
+          parent_task_id?: string | null
           priority?: string
+          progress_summary?: string | null
           project_id?: string | null
           required_capabilities?: Json
+          split_agent_ids?: string[]
           status?: string
+          task_kind?: string
           title?: string
           updated_at?: string
         }
@@ -889,6 +954,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
           {
@@ -1024,6 +1096,8 @@ export type Database = {
           priority: string
           project_id: string
           run_id: string
+          split_agents: Json
+          task_kind: string
           task_id: string
           title: string
         }[]
@@ -1045,8 +1119,18 @@ export type Database = {
           expires_at: string
           name: string
           party_id: string
+          repository_url: string
           request_id: string
+          source_type: string
         }[]
+      }
+      connector_append_task_progress: {
+        Args: { p_device_id: string; p_kind: string; p_message: string; p_metadata?: Json; p_run_id: string }
+        Returns: number
+      }
+      connector_create_task_split: {
+        Args: { p_device_id: string; p_items: Json; p_result_summary?: string; p_run_id: string }
+        Returns: number
       }
       connector_complete_repository_setup: {
         Args: {
@@ -1161,6 +1245,19 @@ export type Database = {
         }
         Returns: string
       }
+      create_crew_task: {
+        Args: {
+          p_assigned_agent_id?: string
+          p_auto_split?: boolean
+          p_description?: string
+          p_party_id: string
+          p_priority?: string
+          p_project_id?: string
+          p_split_agent_ids?: string[]
+          p_title: string
+        }
+        Returns: string
+      }
       create_party: {
         Args: { party_name: string; party_slug: string }
         Returns: string
@@ -1180,6 +1277,10 @@ export type Database = {
           expired_approvals: number
           requeued_runs: number
         }[]
+      }
+      resume_interrupted_task: {
+        Args: { p_task_id: string }
+        Returns: boolean
       }
       redeem_party_invitation: {
         Args: { p_code_hash: string; p_user_id: string }

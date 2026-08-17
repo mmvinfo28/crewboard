@@ -1,6 +1,6 @@
 {
   "name": "@crewboard/connector",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Local connector for Crewboard, Claude Code, Codex, and Cursor",
   "type": "module",
   "bin": {

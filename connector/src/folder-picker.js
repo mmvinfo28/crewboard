@@ -1,7 +1,9 @@
-import { execFile } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
+import { mkdir, rm, stat } from "node:fs/promises";
 import crypto from "node:crypto";
 import path from "node:path";
 import { promisify } from "node:util";
+import { configStorageDirectory } from "./config.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -64,5 +66,60 @@ export async function pickRepositoryFolder() {
   } catch (error) {
     if (error?.code === 1 || error?.code === "1") return null;
     throw error;
+  }
+}
+
+export function normalizeGitHubRepositoryUrl(value) {
+  let parsed;
+  try { parsed = new URL(value); }
+  catch { throw new Error("Enter a complete GitHub URL, such as https://github.com/crew/project"); }
+  if (parsed.protocol !== "https:" || parsed.hostname.toLowerCase() !== "github.com"
+    || parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error("Crewboard currently accepts HTTPS links from github.com only");
+  }
+  const parts = parsed.pathname.replace(/^\/+|\/+$/g, "").split("/");
+  if (parts.length !== 2 || !parts.every((part) => /^[A-Za-z0-9_.-]+$/.test(part))) {
+    throw new Error("GitHub repository links must look like https://github.com/owner/repository");
+  }
+  const repository = parts[1].replace(/\.git$/i, "");
+  if (!repository) throw new Error("GitHub repository name is missing");
+  return { url: `https://github.com/${parts[0]}/${repository}.git`, slug: `${parts[0]}-${repository}` };
+}
+
+async function directoryExists(value) {
+  try { return (await stat(value)).isDirectory(); } catch { return false; }
+}
+
+function commandAvailable(command) {
+  const probe = spawnSync(process.platform === "win32" ? "where.exe" : "which", [command], {
+    encoding: "utf8", windowsHide: true,
+  });
+  return probe.status === 0;
+}
+
+export async function cloneGitHubRepository(repositoryUrl, requestId) {
+  const repository = normalizeGitHubRepositoryUrl(repositoryUrl);
+  const repositoriesRoot = path.join(configStorageDirectory(), "repositories");
+  const target = path.join(repositoriesRoot, `${repository.slug}-${requestId.slice(0, 8)}`);
+  await mkdir(repositoriesRoot, { recursive: true, mode: 0o700 });
+  if (await directoryExists(path.join(target, ".git"))) return target;
+  await rm(target, { recursive: true, force: true });
+
+  try {
+    if (commandAvailable("gh")) {
+      const repoName = repository.url.replace(/^https:\/\/github\.com\//, "").replace(/\.git$/, "");
+      await execFileAsync("gh", ["repo", "clone", repoName, target, "--", "--depth=1"], {
+        timeout: 10 * 60 * 1000, windowsHide: true, maxBuffer: 2 * 1024 * 1024,
+      });
+    } else {
+      await execFileAsync("git", ["clone", "--depth=1", "--", repository.url, target], {
+        timeout: 10 * 60 * 1000, windowsHide: true, maxBuffer: 2 * 1024 * 1024,
+      });
+    }
+    return target;
+  } catch (error) {
+    await rm(target, { recursive: true, force: true });
+    const detail = `${error?.stderr || error?.message || "Clone failed"}`.trim().split(/\r?\n/).slice(-2).join(" ");
+    throw new Error(`Could not clone the GitHub repository. Check your local GitHub login. ${detail}`.slice(0, 500));
   }
 }

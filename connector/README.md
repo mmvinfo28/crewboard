@@ -9,7 +9,7 @@ After that, use **Add repository** in the dashboard. Crewboard asks the connecto
 For Mac, Linux, or advanced setup, run:
 
 ```bash
-npx --yes github:mmvinfo28/crewboard#agent/crewboard-web-app connect
+npx --yes github:mmvinfo28/crewboard#connector-v0.4.0 connect
 ```
 
 The shorter `npx @crewboard/connector connect` command will be available after the package is published to npm.
@@ -23,7 +23,12 @@ Useful commands:
 ```bash
 crewboard status
 crewboard run --workspace ./my-project --allow-writes
+crewboard startup on
 crewboard disconnect
 ```
+
+GitHub repositories can be added by URL from the Crewboard dashboard. The connector clones them into its private application-data directory using the computer's existing `gh` or Git credential. Task milestones are streamed back as sanitized progress events; command text, file contents, hidden reasoning, and local paths are not uploaded.
+
+Automatic splits use one named Claude or Codex teammate for a short planning run, then create real child tasks assigned across the selected crew. If a computer disappears during a write task, Crewboard marks the task interrupted and waits for a person to resume it instead of blindly repeating side effects.
 
 The refresh credential is scoped to one party and device and stored in the current user's local configuration directory with user-only permissions where supported.

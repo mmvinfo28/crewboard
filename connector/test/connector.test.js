@@ -6,7 +6,8 @@ import path from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 import { normalizeServerUrl } from "../src/api.js";
-import { pathFingerprint } from "../src/folder-picker.js";
+import { normalizeGitHubRepositoryUrl, pathFingerprint } from "../src/folder-picker.js";
+import { parseSplitPlan, progressFromEvent } from "../src/runner.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -21,6 +22,31 @@ test("creates an opaque stable folder fingerprint", () => {
   assert.equal(first, second);
   assert.match(first, /^[a-f0-9]{64}$/);
   assert.doesNotMatch(first, /repository/);
+});
+
+test("accepts only normal GitHub repository URLs", () => {
+  assert.deepEqual(normalizeGitHubRepositoryUrl("https://github.com/crew/project"), {
+    url: "https://github.com/crew/project.git",
+    slug: "crew-project",
+  });
+  assert.throws(() => normalizeGitHubRepositoryUrl("https://example.com/crew/project"), /github.com only/);
+  assert.throws(() => normalizeGitHubRepositoryUrl("https://github.com/crew/project/issues"), /must look like/);
+});
+
+test("parses a strict automatic task split", () => {
+  const items = parseSplitPlan('```json\n{"tasks":[{"title":"Build UI","description":"Finish it","agent_id":"one"},{"title":"Test UI","description":"Verify it","agent_id":"two"}]}\n```');
+  assert.equal(items.length, 2);
+  assert.equal(items[1].agent_id, "two");
+  assert.throws(() => parseSplitPlan('{"tasks":[]}'), /valid task split/);
+});
+
+test("turns provider events into sanitized progress", () => {
+  assert.deepEqual(progressFromEvent("codex", { type: "item.started", item: { type: "command_execution", command: "secret" } }), {
+    kind: "tool", message: "Running a project command",
+  });
+  assert.deepEqual(progressFromEvent("claude", { type: "assistant", message: { content: [{ type: "tool_use", name: "Read", input: { file_path: "secret" } }] } }), {
+    kind: "tool", message: "Reading and searching the repository",
+  });
 });
 
 test("status detects a local CLI without exposing credentials", async () => {

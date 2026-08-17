@@ -33,3 +33,7 @@ export async function clearConfig() {
 export function configLocation() {
   return configPath;
 }
+
+export function configStorageDirectory() {
+  return configDirectory;
+}

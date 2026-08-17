@@ -8,6 +8,8 @@ type Tables = Database["public"]["Tables"];
 export type Party = Tables["parties"]["Row"] & { role: string };
 export type AgentRow = Tables["agents"]["Row"];
 export type TaskRow = Tables["tasks"]["Row"];
+export type TaskRunRow = Tables["task_runs"]["Row"];
+export type TaskProgressRow = Tables["task_progress_events"]["Row"];
 export type DeviceRow = Tables["devices"]["Row"];
 export type DeviceSessionRow = Tables["device_sessions"]["Row"];
 export type ProjectRow = Tables["projects"]["Row"];
@@ -31,6 +33,8 @@ export function useCrewboardData() {
   const [activePartyId, setActivePartyId] = useState("");
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
+  const [taskRuns, setTaskRuns] = useState<TaskRunRow[]>([]);
+  const [taskProgress, setTaskProgress] = useState<TaskProgressRow[]>([]);
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [deviceSessions, setDeviceSessions] = useState<DeviceSessionRow[]>([]);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
@@ -93,15 +97,17 @@ export function useCrewboardData() {
 
   const loadPartyData = useCallback(async (partyId: string) => {
     if (!partyId) {
-      setAgents([]); setTasks([]); setDevices([]); setDeviceSessions([]); setProjects([]); setDeviceFolders([]); setRepositorySetups([]); setMembers([]); setActivity([]); setUsageEvents([]);
+      setAgents([]); setTasks([]); setTaskRuns([]); setTaskProgress([]); setDevices([]); setDeviceSessions([]); setProjects([]); setDeviceFolders([]); setRepositorySetups([]); setMembers([]); setActivity([]); setUsageEvents([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError("");
-    const [agentResult, taskResult, deviceResult, sessionResult, projectResult, folderResult, setupResult, memberResult, activityResult, usageResult] = await Promise.all([
+    const [agentResult, taskResult, runResult, progressResult, deviceResult, sessionResult, projectResult, folderResult, setupResult, memberResult, activityResult, usageResult] = await Promise.all([
       supabase.from("agents").select("*").eq("party_id", partyId).order("created_at"),
       supabase.from("tasks").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(200),
+      supabase.from("task_runs").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(200),
+      supabase.from("task_progress_events").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(400),
       supabase.from("devices").select("*").eq("party_id", partyId).order("created_at"),
       supabase.from("device_sessions").select("*").eq("party_id", partyId).order("created_at", { ascending: false }),
       supabase.from("projects").select("*").eq("party_id", partyId).order("created_at", { ascending: false }),
@@ -111,7 +117,7 @@ export function useCrewboardData() {
       supabase.from("activity_events").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(100),
       supabase.from("usage_events").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(100),
     ]);
-    const firstError = [agentResult.error, taskResult.error, deviceResult.error, sessionResult.error, projectResult.error, folderResult.error, setupResult.error, memberResult.error, activityResult.error, usageResult.error].find(Boolean);
+    const firstError = [agentResult.error, taskResult.error, runResult.error, progressResult.error, deviceResult.error, sessionResult.error, projectResult.error, folderResult.error, setupResult.error, memberResult.error, activityResult.error, usageResult.error].find(Boolean);
     if (firstError) {
       setError(firstError.message);
       setLoading(false);
@@ -125,6 +131,8 @@ export function useCrewboardData() {
     const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
     setAgents(agentResult.data ?? []);
     setTasks(taskResult.data ?? []);
+    setTaskRuns(runResult.data ?? []);
+    setTaskProgress(progressResult.data ?? []);
     setDevices(deviceResult.data ?? []);
     setDeviceSessions(sessionResult.data ?? []);
     setProjects(projectResult.data ?? []);
@@ -175,6 +183,13 @@ export function useCrewboardData() {
         if (payload.eventType === "DELETE") setTasks((rows) => rows.filter((row) => row.id !== (payload.old as { id?: string }).id));
         else setTasks((rows) => mergeRow(rows, payload.new as TaskRow));
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "task_runs", filter: `party_id=eq.${activePartyId}` }, (payload) => {
+        if (payload.eventType === "DELETE") setTaskRuns((rows) => rows.filter((row) => row.id !== (payload.old as { id?: string }).id));
+        else setTaskRuns((rows) => mergeRow(rows, payload.new as TaskRunRow));
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "task_progress_events", filter: `party_id=eq.${activePartyId}` }, (payload) => {
+        setTaskProgress((rows) => [payload.new as TaskProgressRow, ...rows].slice(0, 400));
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "projects", filter: `party_id=eq.${activePartyId}` }, (payload) => {
         if (payload.eventType === "DELETE") setProjects((rows) => rows.filter((row) => row.id !== (payload.old as { id?: string }).id));
         else setProjects((rows) => mergeRow(rows, payload.new as ProjectRow));
@@ -219,17 +234,17 @@ export function useCrewboardData() {
     return data;
   }
 
-  async function addTask(input: { title: string; description?: string; assignedAgentId?: string; projectId?: string; priority?: string }) {
+  async function addTask(input: { title: string; description?: string; assignedAgentId?: string; projectId?: string; priority?: string; autoSplit?: boolean; splitAgentIds?: string[] }) {
     if (!activePartyId || !userId) throw new Error("Create or select a party first");
-    const { error: taskError } = await supabase.from("tasks").insert({
-      party_id: activePartyId,
-      created_by: userId,
-      title: input.title.trim(),
-      description: input.description?.trim() || "",
-      assigned_agent_id: input.assignedAgentId || null,
-      project_id: input.projectId || null,
-      priority: input.priority || "medium",
-      status: "queued",
+    const { error: taskError } = await supabase.rpc("create_crew_task", {
+      p_party_id: activePartyId,
+      p_title: input.title.trim(),
+      p_description: input.description?.trim() || "",
+      p_assigned_agent_id: input.assignedAgentId || undefined,
+      p_project_id: input.projectId || undefined,
+      p_priority: input.priority || "medium",
+      p_auto_split: Boolean(input.autoSplit),
+      p_split_agent_ids: input.splitAgentIds || [],
     });
     if (taskError) throw taskError;
     await loadPartyData(activePartyId);
@@ -249,13 +264,15 @@ export function useCrewboardData() {
     return data;
   }
 
-  async function requestRepositorySetup(name: string, deviceId: string) {
+  async function requestRepositorySetup(input: { name: string; deviceId: string; sourceType: "local" | "github"; repositoryUrl?: string }) {
     if (!activePartyId || !userId) throw new Error("Create or select a party first");
     const { data, error: setupError } = await supabase.from("repository_setup_requests").insert({
       party_id: activePartyId,
-      device_id: deviceId,
+      device_id: input.deviceId,
       requested_by: userId,
-      name: name.trim(),
+      name: input.name.trim(),
+      source_type: input.sourceType,
+      repository_url: input.sourceType === "github" ? input.repositoryUrl?.trim() || null : null,
     }).select().single();
     if (setupError) {
       if (setupError.code === "23505") throw new Error("That computer already has a folder picker waiting for you");
@@ -263,6 +280,12 @@ export function useCrewboardData() {
     }
     setRepositorySetups((rows) => [data, ...rows]);
     return data;
+  }
+
+  async function resumeTask(taskId: string) {
+    const { error: resumeError } = await supabase.rpc("resume_interrupted_task", { p_task_id: taskId });
+    if (resumeError) throw resumeError;
+    await loadPartyData(activePartyId);
   }
 
   async function toggleAgent(agent: AgentRow) {
@@ -286,7 +309,7 @@ export function useCrewboardData() {
 
   return {
     userId, email, displayName, setDisplayName, parties, activeParty, activePartyId, selectParty,
-    agents, tasks, devices, deviceSessions, projects, deviceFolders, repositorySetups, members, activity, usageEvents, loading, error, realtimeConnected,
-    createParty, createAgent, addTask, requestRepositorySetup, toggleAgent, revokeDeviceSession, refreshDevices, refresh: () => loadPartyData(activePartyId),
+    agents, tasks, taskRuns, taskProgress, devices, deviceSessions, projects, deviceFolders, repositorySetups, members, activity, usageEvents, loading, error, realtimeConnected,
+    createParty, createAgent, addTask, requestRepositorySetup, resumeTask, toggleAgent, revokeDeviceSession, refreshDevices, refresh: () => loadPartyData(activePartyId),
   };
 }

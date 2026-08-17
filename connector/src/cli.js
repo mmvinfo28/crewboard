@@ -4,8 +4,9 @@ import { normalizeServerUrl, redeemPairing, startPairing } from "./api.js";
 import { clearConfig, configLocation, loadConfig, saveConfig } from "./config.js";
 import { Connector } from "./connector.js";
 import { detectAgents, platformName } from "./detect.js";
+import { installStartup, removeStartup, startupEnabled } from "./startup.js";
 
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 const DEFAULT_SERVER = process.env.CREWBOARD_URL || "https://swarm-eight-azure.vercel.app";
 
 function argument(args, name, fallback = null) {
@@ -14,7 +15,7 @@ function argument(args, name, fallback = null) {
 }
 
 function help() {
-  console.log(`Crewboard connector ${VERSION}\n\nCommands:\n  connect          Pair this computer and start listening\n  run              Start using a saved pairing\n  status           Show detected local agents\n  disconnect       Remove the saved pairing from this computer\n\nOptions:\n  --url <url>       Crewboard server URL\n  --workspace <dir> Folder agents may work inside (default: current folder)\n  --allow-writes    Allow Claude, Codex, and Cursor to edit workspace files`);
+  console.log(`Crewboard connector ${VERSION}\n\nCommands:\n  connect          Pair this computer and start listening\n  run              Start using a saved pairing\n  status           Show detected local agents\n  startup on|off   Start or stop automatic launch at Windows sign-in\n  disconnect       Remove the saved pairing from this computer\n\nOptions:\n  --url <url>       Crewboard server URL\n  --workspace <dir> Folder agents may work inside (default: current folder)\n  --allow-writes    Allow Claude, Codex, and Cursor to edit workspace files\n  --startup         Start Crewboard automatically at Windows sign-in`);
 }
 
 async function waitForApproval(serverUrl, challenge) {
@@ -59,6 +60,9 @@ async function connect(args) {
     pairedAt: new Date().toISOString(),
   };
   await saveConfig(config);
+  if (args.includes("--startup") && await installStartup(serverUrl)) {
+    console.log("Crewboard will start automatically when you sign in to Windows.");
+  }
   console.log(`Approved. Credentials saved locally at ${configLocation()}.`);
   await new Connector(config, agents, connectorOptions(args)).start();
 }
@@ -82,6 +86,7 @@ async function status() {
   console.log(`Pairing: ${config ? `saved for device ${config.device?.id}` : "not configured"}`);
   console.log(`Config: ${configLocation()}`);
   console.log(`Local agents: ${agents.length ? agents.map((agent) => `${agent.name} (${agent.model})`).join(", ") : "none detected"}`);
+  console.log(`Start at sign-in: ${await startupEnabled() ? "enabled" : "disabled"}`);
 }
 
 export async function main(args) {
@@ -89,7 +94,13 @@ export async function main(args) {
   if (command === "connect") return connect(args.slice(1));
   if (command === "run") return run(args.slice(1));
   if (command === "status") return status();
-  if (command === "disconnect") { await clearConfig(); console.log("Local Crewboard pairing removed."); return; }
+  if (command === "startup") {
+    const mode = args[1] || "status";
+    if (mode === "on") { const config = await loadConfig(); if (!config) throw new Error("Pair this computer before enabling startup"); await installStartup(config.serverUrl); console.log("Crewboard will start at Windows sign-in."); return; }
+    if (mode === "off") { await removeStartup(); console.log("Automatic startup disabled."); return; }
+    console.log(`Start at sign-in: ${await startupEnabled() ? "enabled" : "disabled"}`); return;
+  }
+  if (command === "disconnect") { await removeStartup(); await clearConfig(); console.log("Local Crewboard pairing and automatic startup removed."); return; }
   help();
   if (!["help", "--help", "-h"].includes(command)) process.exitCode = 1;
 }

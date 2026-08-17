@@ -1,6 +1,6 @@
 {
   "name": "crewboard-core",
-  "version": "0.2.1",
+  "version": "0.4.0",
   "private": true,
   "description": "Crewboard multi-agent orchestration and local connector.",
   "bin": {

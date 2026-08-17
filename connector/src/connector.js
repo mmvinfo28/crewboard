@@ -3,8 +3,8 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { rpc, rotateToken } from "./api.js";
 import { saveConfig } from "./config.js";
-import { pathFingerprint, pickRepositoryFolder } from "./folder-picker.js";
-import { runAgent } from "./runner.js";
+import { cloneGitHubRepository, pathFingerprint, pickRepositoryFolder } from "./folder-picker.js";
+import { parseSplitPlan, runAgent } from "./runner.js";
 
 const HEARTBEAT_MS = 25_000;
 const FALLBACK_POLL_MS = 60_000;
@@ -92,8 +92,13 @@ export class Connector {
       request = rows?.[0];
       if (!request) return;
 
-      console.log(`\nCrewboard wants to add “${request.name}”. Choose its folder on this computer.`);
-      const folderPath = await pickRepositoryFolder();
+      const isGitHub = request.source_type === "github";
+      console.log(isGitHub
+        ? `\nCrewboard is cloning “${request.name}” from GitHub.`
+        : `\nCrewboard wants to add “${request.name}”. Choose its folder on this computer.`);
+      const folderPath = isGitHub
+        ? await cloneGitHubRepository(request.repository_url, request.request_id)
+        : await pickRepositoryFolder();
       if (!folderPath) throw new Error("Folder selection was cancelled");
 
       this.config.pendingRepositoryPaths = {
@@ -139,23 +144,52 @@ export class Connector {
     console.log(`\n[${agent.name}] ${task.title}`);
     const startedAt = Date.now();
     const heartbeat = setInterval(() => { void this.heartbeat(task.run_id).catch((error) => console.error(`Heartbeat failed: ${error.message}`)); }, HEARTBEAT_MS);
+    let progressQueue = Promise.resolve();
+    let lastProgressAt = 0;
+    let lastProgressMessage = "";
+    const reportProgress = ({ kind = "update", message }) => {
+      const cleanMessage = `${message || ""}`.replace(/\s+/g, " ").trim().slice(0, 500);
+      if (!cleanMessage || cleanMessage === lastProgressMessage || Date.now() - lastProgressAt < 1500) return;
+      lastProgressAt = Date.now();
+      lastProgressMessage = cleanMessage;
+      progressQueue = progressQueue.then(() => this.call("connector_append_task_progress", {
+        p_device_id: this.config.device.id,
+        p_run_id: task.run_id,
+        p_kind: kind,
+        p_message: cleanMessage,
+        p_metadata: {},
+      })).catch((error) => console.error(`Progress update failed: ${error.message}`));
+    };
     try {
       const projectWorkspace = task.project_id ? this.config.projectPaths?.[task.project_id] : null;
       if (task.project_id && !projectWorkspace) throw new Error("This repository is not linked on this computer");
+      reportProgress({ kind: "status", message: task.task_kind === "planner" ? "Coordinator is planning the split" : `${agent.name} started the task` });
       const result = await runAgent(agent, task, {
         ...this.options,
         workspace: projectWorkspace || this.options.workspace,
-        allowWrites: task.project_id ? true : this.options.allowWrites,
+        allowWrites: task.task_kind === "planner" ? false : task.project_id ? true : this.options.allowWrites,
+        onProgress: reportProgress,
       });
       const text = (result.text || "").trim().slice(-4000);
       const success = result.code === 0;
-      await this.call("complete_task_run", {
-        p_device_id: this.config.device.id,
-        p_run_id: task.run_id,
-        p_status: success ? "completed" : "failed",
-        p_result_summary: text || (success ? "Task completed" : "Agent returned no output"),
-        p_error_code: success ? null : `agent_exit_${result.code ?? "unknown"}`,
-      });
+      await progressQueue;
+      if (success && task.task_kind === "planner") {
+        const splitItems = parseSplitPlan(result.text);
+        await this.call("connector_create_task_split", {
+          p_device_id: this.config.device.id,
+          p_run_id: task.run_id,
+          p_items: splitItems,
+          p_result_summary: `Split into ${splitItems.length} tasks`,
+        });
+      } else {
+        await this.call("complete_task_run", {
+          p_device_id: this.config.device.id,
+          p_run_id: task.run_id,
+          p_status: success ? "completed" : "failed",
+          p_result_summary: text || (success ? "Task completed" : "Agent returned no output"),
+          p_error_code: success ? null : `agent_exit_${result.code ?? "unknown"}`,
+        });
+      }
       await this.call("connector_record_usage", {
         p_device_id: this.config.device.id,
         p_agent_id: agent.agent_id,
@@ -168,7 +202,7 @@ export class Connector {
         p_cached_input_tokens: result.usage?.cachedInputTokens || 0,
         p_cost_usd: result.usage?.costUsd || 0,
       });
-      console.log(success ? `Completed in ${Math.round((Date.now() - startedAt) / 1000)}s` : `Failed: ${text.slice(0, 240)}`);
+      console.log(success ? `${task.task_kind === "planner" ? "Split created" : "Completed"} in ${Math.round((Date.now() - startedAt) / 1000)}s` : `Failed: ${text.slice(0, 240)}`);
     } catch (error) {
       await this.call("complete_task_run", {
         p_device_id: this.config.device.id,
