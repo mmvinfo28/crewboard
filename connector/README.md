@@ -9,7 +9,7 @@ After that, use **Add repository** in the dashboard. Crewboard asks the connecto
 For Mac, Linux, or advanced setup, run:
 
 ```bash
-npx --yes github:mmvinfo28/crewboard#connector-v0.4.1 connect
+npx --yes github:mmvinfo28/crewboard#connector-v0.4.2 connect --background --startup
 ```
 
 The shorter `npx @crewboard/connector connect` command will be available after the package is published to npm.
@@ -22,10 +22,19 @@ Useful commands:
 
 ```bash
 crewboard status
+crewboard start
+crewboard restart
+crewboard stop
 crewboard run --workspace ./my-project --allow-writes
 crewboard startup on
 crewboard disconnect
 ```
+
+From a source checkout, the same background controls are available as
+`npm run crewboard:start`, `npm run crewboard:restart`, and `npm run crewboard:status`.
+Background output is written to the `connector.log` file shown by the status command.
+On Windows, run `npm run crewboard:control:build` once, then open `Crewboard Control.exe` (or double-click
+`Crewboard Control.cmd`) for a small control panel with start, stop, restart, reconnect, dashboard, and log controls.
 
 GitHub repositories can be added by URL from the Crewboard dashboard. The connector clones them into its private application-data directory using the computer's existing `gh` or Git credential. Task milestones are streamed back as sanitized progress events; command text, file contents, hidden reasoning, and local paths are not uploaded.
 

@@ -6,6 +6,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 import { normalizeServerUrl } from "../src/api.js";
+import { compareCliVersions, newestCli } from "../src/detect.js";
 import { normalizeGitHubRepositoryUrl, pathFingerprint } from "../src/folder-picker.js";
 import { effortArgs, parseSplitPlan, progressFromEvent } from "../src/runner.js";
 
@@ -45,6 +46,15 @@ test("maps saved effort to supported local provider flags", () => {
   assert.deepEqual(effortArgs("codex", "xhigh"), ["-c", 'model_reasoning_effort="xhigh"']);
   assert.deepEqual(effortArgs("cursor", "high"), []);
   assert.deepEqual(effortArgs("codex", "auto"), []);
+});
+
+test("selects the newest installed Codex CLI instead of the first path", () => {
+  assert.ok(compareCliVersions("codex-cli 0.147.0", "codex-cli 0.130.0-alpha.5") > 0);
+  assert.ok(compareCliVersions("codex-cli 0.147.0", "codex-cli 0.147.0-alpha.1") > 0);
+  assert.equal(newestCli([
+    { command: "old", version: "codex-cli 0.130.0-alpha.5" },
+    { command: "new", version: "codex-cli 0.147.0" },
+  ]).command, "new");
 });
 
 test("turns provider events into sanitized progress", () => {

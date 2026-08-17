@@ -4,9 +4,10 @@ import { normalizeServerUrl, redeemPairing, startPairing } from "./api.js";
 import { clearConfig, configLocation, loadConfig, saveConfig } from "./config.js";
 import { Connector } from "./connector.js";
 import { detectAgents, platformName } from "./detect.js";
+import { managedStatus, startManaged, stopManaged } from "./process-manager.js";
 import { installStartup, removeStartup, startupEnabled } from "./startup.js";
 
-const VERSION = "0.4.1";
+const VERSION = "0.4.2";
 const DEFAULT_SERVER = process.env.CREWBOARD_URL || "https://swarm-eight-azure.vercel.app";
 
 function argument(args, name, fallback = null) {
@@ -15,7 +16,7 @@ function argument(args, name, fallback = null) {
 }
 
 function help() {
-  console.log(`Crewboard connector ${VERSION}\n\nCommands:\n  connect          Pair this computer and start listening\n  run              Start using a saved pairing\n  status           Show detected local agents\n  startup on|off   Start or stop automatic launch at Windows sign-in\n  disconnect       Remove the saved pairing from this computer\n\nOptions:\n  --url <url>       Crewboard server URL\n  --workspace <dir> Folder agents may work inside (default: current folder)\n  --allow-writes    Allow Claude, Codex, and Cursor to edit workspace files\n  --startup         Start Crewboard automatically at Windows sign-in`);
+  console.log(`Crewboard connector ${VERSION}\n\nCommands:\n  connect          Pair this computer and start listening\n  run              Start in the current terminal\n  start            Start in the background\n  stop             Stop the background connector\n  restart          Restart the background connector\n  status           Show connection and local-agent status\n  startup on|off   Start or stop automatic launch at Windows sign-in\n  disconnect       Remove the saved pairing from this computer\n\nOptions:\n  --url <url>       Crewboard server URL\n  --workspace <dir> Folder agents may work inside (default: current folder)\n  --allow-writes    Allow Claude, Codex, and Cursor to edit workspace files\n  --background      Keep running after the pairing window closes\n  --startup         Start Crewboard automatically at Windows sign-in`);
 }
 
 async function waitForApproval(serverUrl, challenge) {
@@ -64,6 +65,12 @@ async function connect(args) {
     console.log("Crewboard will start automatically when you sign in to Windows.");
   }
   console.log(`Approved. Credentials saved locally at ${configLocation()}.`);
+  if (args.includes("--background")) {
+    const result = await startManaged(args.filter((value) => !["--background", "--startup"].includes(value)));
+    console.log(`Crewboard is running in the background (PID ${result.pid}).`);
+    console.log(`Log: ${result.logPath}`);
+    return;
+  }
   await new Connector(config, agents, connectorOptions(args)).start();
 }
 
@@ -83,9 +90,12 @@ async function run(args) {
 async function status() {
   const config = await loadConfig();
   const agents = detectAgents();
+  const processStatus = await managedStatus();
   console.log(`Pairing: ${config ? `saved for device ${config.device?.id}` : "not configured"}`);
+  console.log(`Connector: ${processStatus.running ? `running (PID ${processStatus.pid})` : "stopped"}`);
+  console.log(`Log: ${processStatus.logPath}`);
   console.log(`Config: ${configLocation()}`);
-  console.log(`Local agents: ${agents.length ? agents.map((agent) => `${agent.name} (${agent.model})`).join(", ") : "none detected"}`);
+  console.log(`Local agents: ${agents.length ? agents.map((agent) => `${agent.name} (${agent.model}${agent.version ? `; ${agent.version}` : ""})`).join(", ") : "none detected"}`);
   console.log(`Start at sign-in: ${await startupEnabled() ? "enabled" : "disabled"}`);
 }
 
@@ -93,6 +103,24 @@ export async function main(args) {
   const command = args[0] || "help";
   if (command === "connect") return connect(args.slice(1));
   if (command === "run") return run(args.slice(1));
+  if (command === "start") {
+    const result = await startManaged(args.slice(1));
+    console.log(result.started ? `Crewboard started in the background (PID ${result.pid}).` : `Crewboard is already running (PID ${result.pid}).`);
+    console.log(`Log: ${result.logPath}`);
+    return;
+  }
+  if (command === "stop") {
+    const result = await stopManaged();
+    console.log(result.stopped ? `Crewboard stopped (PID ${result.pid}).` : "Crewboard is already stopped.");
+    return;
+  }
+  if (command === "restart") {
+    await stopManaged();
+    const result = await startManaged(args.slice(1));
+    console.log(`Crewboard restarted in the background (PID ${result.pid}).`);
+    console.log(`Log: ${result.logPath}`);
+    return;
+  }
   if (command === "status") return status();
   if (command === "startup") {
     const mode = args[1] || "status";
