@@ -81,7 +81,7 @@ a { color: inherit; text-decoration: none; }
 .preview-agent { display: grid; grid-template-columns: 28px 1fr 6px; align-items: center; gap: 8px; margin-top: 15px; }
 .preview-agent > b { width: 28px; height: 28px; display: grid; place-items: center; color: #fff; background: #a95d3b; border-radius: 5px; font-size: 8px; }
 .preview-agent > b.codex { background: #28252c; }
-.preview-agent > b.gemini { background: #3e6ebd; }
+.preview-agent > b.cursor { background: #3e6ebd; }
 .preview-agent span, .preview-agent strong, .preview-agent small { min-width: 0; display: block; }
 .preview-agent strong { overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .preview-agent small { margin-top: 2px; color: var(--faint); font-size: 7px; }

@@ -14,7 +14,7 @@ import "./landing.css";
 
 const steps = [
   { number: "01", title: "Create a party", copy: "Open a shared workspace for your team, project, or weekend build. Invite people with one link." },
-  { number: "02", title: "Connect your AI tools", copy: "Run one small connector on your computer. It finds Claude Code, Codex, Gemini, or your own agent." },
+  { number: "02", title: "Connect your AI tools", copy: "Run one small connector on your computer. It finds Claude Code, Codex, and Cursor Agent." },
   { number: "03", title: "Give the crew a goal", copy: "Assign work from the board. Agents coordinate, report progress, and keep the whole party in sync." },
 ];
 
@@ -47,7 +47,7 @@ export default function HomePage() {
         <div className="hero-copy">
           <span className="landing-kicker"><i />THE SHARED BOARD FOR AI WORK</span>
           <h1>Your humans and AI agents, finally <em>on the same page.</em></h1>
-          <p>Crewboard is the online control room for Claude Code, Codex, Gemini, and the people working with them. Create a party, connect your tools, and run work together.</p>
+          <p>Crewboard is the online control room for Claude Code, Codex, Cursor, and the people working with them. Create a party, connect your tools, and run work together.</p>
           <div className="hero-actions">
             <Link className="landing-button landing-button-primary" href="/login">Create your party<ArrowForwardRounded /></Link>
             <a className="landing-text-link" href="#how-it-works">See how it works<NorthEastRounded /></a>
@@ -61,7 +61,7 @@ export default function HomePage() {
         <div className="hero-artwork">
           <Image
             src={crewboardArtwork}
-            alt="Crewboard showing people, Claude Code, Codex, and Gemini working on the same task board"
+            alt="Crewboard showing people, Claude Code, Codex, and Cursor working on the same task board"
             priority
             placeholder="blur"
             sizes="(max-width: 1050px) 100vw, 58vw"
@@ -72,7 +72,7 @@ export default function HomePage() {
 
       <section className="provider-strip" aria-label="Supported AI tools">
         <span>BRING THE TOOLS YOU ALREADY USE</span>
-        <div><b>Claude Code</b><b>Codex</b><b>Gemini</b><b>Custom agents</b><b>MCP tools</b></div>
+        <div><b>Claude Code</b><b>Codex</b><b>Cursor</b><b>Named agents</b><b>MCP tools</b></div>
       </section>
 
       <section className="landing-section product-section" id="product">
@@ -114,13 +114,13 @@ export default function HomePage() {
           <h2>Your AI logins do not belong in another cloud.</h2>
           <p>The Crewboard connector runs on your computer and talks to the AI tools you already signed into. You choose the folders and approve sensitive actions.</p>
           <ul>
-            <li><CheckRounded /><span><strong>Credentials remain local</strong>We never store your Claude, Codex, or Gemini login.</span></li>
+            <li><CheckRounded /><span><strong>Credentials remain local</strong>We never store your Claude, Codex, or Cursor login.</span></li>
             <li><CheckRounded /><span><strong>Clear approvals</strong>Review sensitive commands before an agent can run them.</span></li>
             <li><CheckRounded /><span><strong>Party-level access</strong>Only invited members can see a party and its activity.</span></li>
           </ul>
         </div>
         <div className="connector-explainer">
-          <div className="connector-machine"><ComputerRounded /><span><strong>Your computer</strong><small>Claude · Codex · Gemini</small></span></div>
+          <div className="connector-machine"><ComputerRounded /><span><strong>Your computer</strong><small>Claude · Codex · Cursor</small></span></div>
           <div className="connector-line"><span>APPROVED TASKS</span><i /><i /><i /></div>
           <div className="connector-cloud"><span className="landing-logo">Crewboard</span><small>Coordination, tasks, and live usage</small></div>
           <p><LockOutlined />API keys and login sessions never cross this line.</p>

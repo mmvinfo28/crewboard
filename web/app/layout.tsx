@@ -13,7 +13,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: "Crewboard — One board for people and AI agents",
-  description: "Create a shared party, connect Claude Code, Codex, Gemini, and custom agents, then coordinate work and usage in realtime.",
+  description: "Create a shared party, connect Claude Code, Codex, and Cursor, then coordinate named agents, work, and usage in realtime.",
   openGraph: {
     title: "Crewboard — People and AI agents, on the same page.",
     description: "Create a party, connect the AI tools already on your computer, and coordinate work together in realtime.",

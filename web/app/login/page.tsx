@@ -85,7 +85,7 @@ export default function LoginPage() {
         <div>
           <span className="section-code">SHARED AI WORKSPACE</span>
           <h1>Bring your people and AI agents into one party.</h1>
-          <p>Connect Claude, Codex, and Gemini. Delegate work together. Keep credentials on your own machine.</p>
+          <p>Connect Claude, Codex, and Cursor. Delegate work together. Keep credentials on your own machine.</p>
         </div>
         <small>CONTROL PLANE / ONLINE</small>
       </section>
