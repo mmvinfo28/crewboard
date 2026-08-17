@@ -3,6 +3,7 @@
 /out
 /.vercel
 /.crewboard-secrets
+/supabase/.temp/
 .env*
 !.env.example
 *.tsbuildinfo

@@ -78,4 +78,3 @@ $$;
 
 revoke all on function public.create_named_agent(uuid, text, text, text, text, integer) from public, anon;
 grant execute on function public.create_named_agent(uuid, text, text, text, text, integer) to authenticated;
-

@@ -38,6 +38,12 @@ const modelOptions: Record<string, { value: string; label: string; context: numb
   ],
 };
 
+function errorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") return error.message;
+  return fallback;
+}
+
 function providerName(provider: string) { return provider === "claude" ? "Claude Code" : provider === "codex" ? "Codex (ChatGPT)" : provider === "cursor" ? "Cursor" : provider; }
 function compactTokens(value: number) { return value >= 1_000_000 ? `${(value / 1_000_000).toFixed(value % 1_000_000 ? 1 : 0)}M` : value >= 1_000 ? `${Math.round(value / 1_000)}K` : `${value}`; }
 
@@ -178,7 +184,7 @@ function RepositoryModal({ devices, onClose, onRequest, onConnect }: { devices: 
       await onRequest({ name: finalName, deviceId, sourceType, repositoryUrl: sourceType === "github" ? repositoryUrl.trim() : undefined });
       setRequested(true);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not connect the repository");
+      setMessage(errorMessage(error, "Could not connect the repository"));
     } finally {
       setSubmitting(false);
     }
