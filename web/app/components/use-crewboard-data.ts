@@ -110,7 +110,7 @@ export function useCrewboardData() {
       supabase.from("tasks").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(200),
       supabase.from("task_runs").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(200),
       supabase.from("task_progress_events").select("*").eq("party_id", partyId).order("created_at", { ascending: false }).limit(400),
-      supabase.from("devices").select("*").eq("party_id", partyId).order("created_at"),
+      supabase.from("devices").select("*").eq("party_id", partyId).is("removed_at", null).order("created_at"),
       supabase.from("device_sessions").select("*").eq("party_id", partyId).order("created_at", { ascending: false }),
       supabase.from("projects").select("*").eq("party_id", partyId).order("created_at", { ascending: false }),
       supabase.from("device_folders").select("*").eq("party_id", partyId).order("created_at", { ascending: false }),
@@ -158,6 +158,7 @@ export function useCrewboardData() {
       .from("devices")
       .select("*")
       .eq("party_id", activePartyId)
+      .is("removed_at", null)
       .order("created_at");
     if (deviceError) throw deviceError;
     const rows = data ?? [];
@@ -324,6 +325,24 @@ export function useCrewboardData() {
     await loadPartyData(activePartyId);
   }
 
+  async function deleteAgent(agentId: string) {
+    const agent = agents.find((row) => row.id === agentId);
+    if (!agent || agent.is_default) throw new Error("Only named agents can be deleted");
+    const hasActiveTask = tasks.some((task) => task.assigned_agent_id === agentId && ["queued", "running", "approval_needed"].includes(task.status));
+    if (agent.status === "working" || hasActiveTask) throw new Error("Wait for the current task to finish before deleting this agent");
+    const { data, error: deleteError } = await supabase
+      .from("agents")
+      .delete()
+      .eq("id", agentId)
+      .eq("party_id", activePartyId)
+      .eq("is_default", false)
+      .select("id")
+      .maybeSingle();
+    if (deleteError) throw deleteError;
+    if (!data) throw new Error("You do not have permission to delete this agent");
+    setAgents((rows) => rows.filter((row) => row.id !== agentId));
+  }
+
   async function revokeDeviceSession(sessionId: string) {
     const response = await fetch("/api/connector/session/revoke", {
       method: "POST",
@@ -335,9 +354,20 @@ export function useCrewboardData() {
     await loadPartyData(activePartyId);
   }
 
+  async function removeDevice(deviceId: string) {
+    const response = await fetch("/api/connector/device/remove", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error?.message ?? "Could not remove this device");
+    await loadPartyData(activePartyId);
+  }
+
   return {
     userId, email, displayName, setDisplayName, parties, activeParty, activePartyId, selectParty,
     agents, tasks, taskRuns, taskProgress, devices, deviceSessions, projects, deviceFolders, repositorySetups, members, activity, usageEvents, providerAccountUsage, loading, error, realtimeConnected,
-    createParty, createAgent, addTask, requestRepositorySetup, resumeTask, retryTask, toggleAgent, updateAgentEffort, revokeDeviceSession, refreshDevices, refresh: () => loadPartyData(activePartyId),
+    createParty, createAgent, addTask, requestRepositorySetup, resumeTask, retryTask, toggleAgent, updateAgentEffort, deleteAgent, revokeDeviceSession, removeDevice, refreshDevices, refresh: () => loadPartyData(activePartyId),
   };
 }

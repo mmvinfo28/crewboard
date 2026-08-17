@@ -478,6 +478,7 @@ export type Database = {
           owner_id: string
           party_id: string
           platform: string
+          removed_at: string | null
           status: string
         }
         Insert: {
@@ -489,6 +490,7 @@ export type Database = {
           owner_id: string
           party_id: string
           platform?: string
+          removed_at?: string | null
           status?: string
         }
         Update: {
@@ -500,6 +502,7 @@ export type Database = {
           owner_id?: string
           party_id?: string
           platform?: string
+          removed_at?: string | null
           status?: string
         }
         Relationships: [
@@ -1256,6 +1259,10 @@ export type Database = {
           reasoning_effort: string
           status: string
         }[]
+      }
+      remove_device: {
+        Args: { p_device_id: string; p_user_id: string }
+        Returns: boolean
       }
       connector_pair_redeem: {
         Args: {
